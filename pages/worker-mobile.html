@@ -1,0 +1,1559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PPE Management - Mobile Dashboard</title>
+    <link rel="manifest" href="/frontend/manifest.json">
+    <meta name="theme-color" content="#000000">
+    
+    <!-- PWA -->
+    <link rel="apple-touch-icon" href="manifest-icon-192.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    
+    <!-- Cache control -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            min-height: 100vh;
+            color: #1f2937;
+        }
+        
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 0;
+            min-height: 100vh;
+            background: white;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #000000, #333333);
+            color: white;
+            padding: 60px 20px 30px;
+            position: relative;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .notification-status {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.2);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            display: none;
+        }
+        
+        .notification-status.enabled {
+            display: block;
+        }
+        
+        .tab-navigation {
+            background: white;
+            display: flex;
+            border-bottom: 1px solid #e5e7eb;
+            sticky: top;
+            z-index: 10;
+        }
+        
+        .tab-btn {
+            flex: 1;
+            padding: 16px 8px;
+            background: none;
+            border: none;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            color: #6b7280;
+        }
+        
+        .tab-btn.active {
+            color: #000000;
+            border-bottom-color: #000000;
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 20px;
+            min-height: calc(100vh - 200px);
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .dashboard-cards {
+            display: grid;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .dashboard-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border: 1px solid #f3f4f6;
+        }
+        
+        .dashboard-card h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #1f2937;
+        }
+        
+        .dashboard-card .value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #27AE60;
+            margin-bottom: 4px;
+        }
+        
+        .dashboard-card .label {
+            font-size: 12px;
+            color: #6b7280;
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+        
+        .request-item {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border-left: 4px solid #e5e7eb;
+        }
+        
+        .request-item.pending {
+            border-left-color: #f59e0b;
+        }
+        
+        .request-item.approved {
+            border-left-color: #000000;
+        }
+        
+        .request-item.rejected {
+            border-left-color: #ef4444;
+        }
+        
+        .request-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 12px;
+        }
+        
+        .request-id {
+            font-size: 12px;
+            color: #6b7280;
+            font-weight: 500;
+        }
+        
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .status-badge.pending {
+            background: #fef3c7;
+            color: #d97706;
+        }
+        
+        .status-badge.approved {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status-badge.rejected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .request-items {
+            font-size: 14px;
+            color: #4b5563;
+            margin-bottom: 8px;
+        }
+        
+        .request-date {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+        
+        .notification-item {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border-left: 4px solid #3b82f6;
+            position: relative;
+        }
+        
+        .notification-item.unread {
+            background: #f0f9ff;
+        }
+        
+        .notification-item .timestamp {
+            font-size: 12px;
+            color: #6b7280;
+            position: absolute;
+            top: 16px;
+            right: 16px;
+        }
+        
+        .notification-item h4 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #1f2937;
+            padding-right: 60px;
+        }
+        
+        .notification-item p {
+            font-size: 13px;
+            color: #4b5563;
+            line-height: 1.4;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6b7280;
+        }
+        
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        
+        .empty-state h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .empty-state p {
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .btn-primary {
+            background: #000000;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            width: 100%;
+            margin-top: 16px;
+        }
+        
+        .btn-primary:hover {
+            background: #333333;
+            transform: translateY(-1px);
+            backdrop-filter: blur(10px);
+        }
+        
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #4b5563;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        
+        .photo-capture {
+            margin: 16px 0;
+            padding: 16px;
+            border: 2px dashed #d1d5db;
+            border-radius: 8px;
+            text-align: center;
+            background: #f9fafb;
+        }
+        
+        .photo-preview {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 8px;
+            margin: 12px 0;
+        }
+        
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+        
+        .spinner {
+            border: 2px solid #f3f4f6;
+            border-top: 2px solid #000000;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 1000;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+        }
+        
+        .toast.success {
+            background: #000000;
+        }
+        
+        .toast.error {
+            background: #ef4444;
+        }
+        
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 480px) {
+            .container {
+                width: 100%;
+            }
+            
+            .tab-btn {
+                font-size: 12px;
+                padding: 12px 6px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>PPE Dashboard</h1>
+            <p>Personal Protective Equipment Management</p>
+            <div id="notificationStatus" class="notification-status">
+                🔔 Notifications enabled
+            </div>
+        </div>
+        
+        <div class="tab-navigation">
+            <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+            <button class="tab-btn" data-tab="history">History</button>
+            <button class="tab-btn" data-tab="notifications">Alerts</button>
+            <button class="tab-btn" data-tab="request">Request</button>
+        </div>
+        
+        <!-- Dashboard Tab -->
+        <div id="dashboard" class="tab-content active">
+            <div class="dashboard-cards">
+                <div class="dashboard-card">
+                    <h3>📋 Total Requests</h3>
+                    <div class="value" id="totalRequests">-</div>
+                    <div class="label">All time</div>
+                </div>
+                
+                <div class="dashboard-card">
+                    <h3>✅ Approved</h3>
+                    <div class="value" id="approvedRequests">-</div>
+                    <div class="label">This month</div>
+                </div>
+                
+                <div class="dashboard-card">
+                    <h3>⏳ Pending</h3>
+                    <div class="value" id="pendingRequests">-</div>
+                    <div class="label">Awaiting approval</div>
+                </div>
+            </div>
+            
+            <div class="dashboard-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="margin: 0;">Recent Activity</h3>
+                    <button onclick="loadRecentActivity()" style="
+                        background: none; border: 1px solid #d1d5db; color: #6b7280; 
+                        padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer;
+                        display: flex; align-items: center; gap: 4px;
+                    " title="Refresh activity">
+                        🔄 <span>Refresh</span>
+                    </button>
+                </div>
+                <div id="recentActivity">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading activity...
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- History Tab -->
+        <div id="history" class="tab-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding: 0 20px;">
+                <h3 style="margin: 0; color: #1f2937;">Request History</h3>
+                <button onclick="loadRequestHistory()" style="
+                    background: none; border: 1px solid #d1d5db; color: #6b7280; 
+                    padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer;
+                    display: flex; align-items: center; gap: 4px;
+                " title="Refresh history">
+                    🔄 <span>Refresh</span>
+                </button>
+            </div>
+            <div id="requestHistory">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading request history...
+                </div>
+            </div>
+        </div>
+        
+        <!-- Notifications Tab -->
+        <div id="notifications" class="tab-content">
+            <div id="notificationsList">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading notifications...
+                </div>
+            </div>
+        </div>
+        
+        <!-- Request Tab -->
+        <div id="request" class="tab-content">
+            <div class="dashboard-card">
+                <h3>📱 New PPE Request</h3>
+                <p style="margin-bottom: 16px; color: #6b7280; font-size: 14px;">
+                    Use the full request form for detailed PPE requests
+                </p>
+                <button class="btn-primary" onclick="openFullRequestForm()">
+                    Open Request Form
+                </button>
+            </div>
+            
+            <div class="dashboard-card">
+                <h3>📸 Report PPE Condition</h3>
+                <p style="margin-bottom: 16px; color: #6b7280; font-size: 14px;">
+                    Report damaged or worn PPE items with photos
+                </p>
+                
+                <div class="photo-capture">
+                    <div id="cameraPreview">
+                        📸 Take Photo of PPE Condition
+                        <input type="file" id="photoInput" accept="image/*" capture="environment" style="display: none;">
+                        <button class="btn-secondary" onclick="document.getElementById('photoInput').click()">
+                            📷 Capture Photo
+                        </button>
+                    </div>
+                    <img id="photoPreview" class="photo-preview" style="display: none;">
+                </div>
+                
+                <textarea id="conditionNotes" placeholder="Describe the condition or issue..." 
+                          style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 6px; resize: vertical; min-height: 80px; font-family: inherit; margin: 12px 0;"></textarea>
+                
+                <button id="submitConditionReport" class="btn-primary" disabled>
+                    📤 Submit Condition Report
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        // Global variables
+        let staffId = '';
+        let notificationsEnabled = false;
+        
+        // Universal Undefined Prevention Utilities
+        function safeGet(obj, path, fallback = 'N/A') {
+            if (!obj || typeof obj !== 'object') return fallback;
+            
+            // Handle dot notation paths (e.g., 'user.profile.name')
+            const keys = Array.isArray(path) ? path : path.split('.');
+            let current = obj;
+            
+            for (const key of keys) {
+                if (current === null || current === undefined || typeof current !== 'object') {
+                    return fallback;
+                }
+                current = current[key];
+            }
+            
+            // Return fallback for null, undefined, empty string, or NaN
+            return (current === null || current === undefined || current === '' || Number.isNaN(current)) 
+                ? fallback 
+                : current;
+        }
+        
+        function safeText(element, text, fallback = 'Loading...') {
+            if (element) {
+                element.textContent = text !== undefined && text !== null && text !== '' ? text : fallback;
+            }
+        }
+        
+        function safeNumber(value, fallback = 0) {
+            const num = Number(value);
+            return isNaN(num) ? fallback : num;
+        }
+        
+        function safeArray(value, fallback = []) {
+            return Array.isArray(value) ? value : fallback;
+        }
+        
+        // Always clear cached staff ID on page load for security
+        console.log('Clearing cached staff ID - always require fresh verification');
+        localStorage.removeItem('staffId');
+        staffId = '';
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('Mobile dashboard loaded');
+            console.log('Current staffId from localStorage:', staffId);
+            
+            // Always verify staff ID on page load (even if cached)
+            // This ensures the staff ID is still valid in the database
+            await verifyAndAuthenticateStaff();
+            
+            // If no staffId after verification, user was denied access
+            if (!staffId) {
+                console.log('Access denied - no valid staff ID');
+                return; // Stop initialization
+            }
+            
+            console.log('Proceeding with dashboard initialization for staff:', staffId);
+            
+            // Disable service worker to prevent caching issues (same fix as worker.html)
+            console.log('🔧 Skipping service worker registration to prevent UI freezing');
+            
+            // Clear existing service worker cache that might be causing freezing
+            if ('serviceWorker' in navigator) {
+                try {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (const registration of registrations) {
+                        await registration.unregister();
+                        console.log('🗑️ Unregistered service worker:', registration.scope);
+                    }
+                    
+                    // Also clear caches
+                    if ('caches' in window) {
+                        const cacheNames = await caches.keys();
+                        for (const cacheName of cacheNames) {
+                            await caches.delete(cacheName);
+                            console.log('🗑️ Deleted cache:', cacheName);
+                        }
+                    }
+                } catch (error) {
+                    console.log('Service worker cleanup failed:', error);
+                }
+            }
+            
+            // await registerServiceWorker();
+            
+            // Disable push notifications setup to prevent service worker issues
+            console.log('🔧 Skipping push notifications setup to prevent UI freezing');
+            // await setupPushNotifications();
+            
+            // Load initial data
+            await loadDashboardData();
+            
+            // Setup tab navigation
+            setupTabNavigation();
+            
+            // Setup automatic refresh for live data
+            setupAutoRefresh();
+            
+            // Setup photo capture
+            setupPhotoCapture();
+        });
+        
+        // Register service worker
+        async function registerServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                try {
+                    const registration = await navigator.serviceWorker.register('/frontend/worker-sw.js');
+                    console.log('Service Worker registered:', registration);
+                    
+                    // Listen for messages from service worker
+                    navigator.serviceWorker.addEventListener('message', event => {
+                        console.log('Message from service worker:', event.data);
+                        
+                        if (event.data.type === 'notification_clicked') {
+                            handleNotificationClick(event.data.data);
+                        }
+                    });
+                    
+                } catch (error) {
+                    console.error('Service Worker registration failed:', error);
+                }
+            }
+        }
+        
+        // Setup push notifications
+        async function setupPushNotifications() {
+            if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+                console.log('Push notifications not supported');
+                return;
+            }
+            
+            // Request permission
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                console.log('Push notification permission denied');
+                return;
+            }
+            
+            try {
+                // Get VAPID public key
+                const keyResponse = await fetch('/api/notifications/vapid-public-key');
+                const keyData = await keyResponse.json();
+                
+                // Subscribe to push notifications
+                const registration = await navigator.serviceWorker.ready;
+                const subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: keyData.publicKey
+                });
+                
+                // Send subscription to server
+                await fetch('/api/notifications/subscribe', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        staffId: staffId || 'guest',
+                        subscription: subscription,
+                        userAgent: navigator.userAgent
+                    })
+                });
+                
+                notificationsEnabled = true;
+                document.getElementById('notificationStatus').classList.add('enabled');
+                console.log('Push notifications enabled');
+                
+            } catch (error) {
+                console.error('Failed to setup push notifications:', error);
+            }
+        }
+        
+        // Load dashboard data with refresh capability
+        async function loadDashboardData(showLoading = true) {
+            try {
+                if (showLoading) {
+                    // Show loading indicators
+                    document.getElementById('totalRequests').textContent = '...';
+                    document.getElementById('approvedRequests').textContent = '...';
+                    document.getElementById('pendingRequests').textContent = '...';
+                }
+
+                if (!staffId || staffId === 'guest') {
+                    // Show demo data for guest users
+                    setTimeout(() => {
+                        document.getElementById('totalRequests').textContent = '12';
+                        document.getElementById('approvedRequests').textContent = '8';
+                        document.getElementById('pendingRequests').textContent = '2';
+                        loadRecentActivity();
+                    }, 1000);
+                    return;
+                }
+                
+                // Add cache-busting to get fresh data
+                const timestamp = Date.now();
+                const response = await fetch(`/api/ppe-requests/staff/${staffId}/stats?_=${timestamp}`, {
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache'
+                    }
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    const stats = safeGet(result, 'stats', {});
+                    document.getElementById('totalRequests').textContent = safeNumber(stats.total, 0);
+                    document.getElementById('approvedRequests').textContent = safeNumber(stats.approved, 0);
+                    document.getElementById('pendingRequests').textContent = safeNumber(stats.pending, 0);
+                } else {
+                    document.getElementById('totalRequests').textContent = '-';
+                    document.getElementById('approvedRequests').textContent = '-';
+                    document.getElementById('pendingRequests').textContent = '-';
+                }
+                
+                // Load recent activity with fresh data
+                await loadRecentActivity();
+                
+                console.log('✅ Dashboard data refreshed');
+                
+            } catch (error) {
+                console.error('❌ Failed to load dashboard data:', error);
+                // Show error state
+                document.getElementById('totalRequests').textContent = '-';
+                document.getElementById('approvedRequests').textContent = '-';
+                document.getElementById('pendingRequests').textContent = '-';
+                
+                // Still try to load recent activity
+                await loadRecentActivity();
+            }
+        }
+        
+        // Load recent activity with real data
+        async function loadRecentActivity() {
+            const recentActivity = document.getElementById('recentActivity');
+            
+            if (!staffId || staffId === 'guest') {
+                // Show demo data for guest users
+                recentActivity.innerHTML = `
+                    <div class="request-item approved">
+                        <div class="request-header">
+                            <span class="request-id">DEMO-001</span>
+                            <span class="status-badge approved">approved</span>
+                        </div>
+                        <div class="request-items">Hard Hat, Safety Goggles (Demo)</div>
+                        <div class="request-date">2 hours ago</div>
+                    </div>
+                    <div class="request-item pending">
+                        <div class="request-header">
+                            <span class="request-id">DEMO-002</span>
+                            <span class="status-badge pending">pending</span>
+                        </div>
+                        <div class="request-items">High-Vis Vest, Gloves (Demo)</div>
+                        <div class="request-date">1 day ago</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            try {
+                // Fetch real recent activity data with cache-busting (last 5 requests)
+                const timestamp = Date.now();
+                const response = await fetch(`/api/ppe-requests/staff/${staffId}/history?limit=5&_=${timestamp}`, {
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success && safeArray(result.requests).length > 0) {
+                    recentActivity.innerHTML = safeArray(result.requests).map(request => {
+                        const status = safeGet(request, 'status', 'unknown').toLowerCase();
+                        const statusBadgeClass = status === 'approved' ? 'approved' : 
+                                               status === 'rejected' ? 'rejected' : 'pending';
+                        
+                        // Format request ID to show last 6 characters
+                        const requestId = safeGet(request, 'id', 'Unknown');
+                        const shortId = requestId.length > 6 ? requestId.slice(-6).toUpperCase() : requestId;
+                        
+                        // Format items or show request notes
+                        const items = safeGet(request, 'items', '');
+                        const notes = safeGet(request, 'notes', '');
+                        const displayItems = items || notes || 'No details available';
+                        
+                        // Format timestamp using timezone-aware utilities
+                        const createdAt = safeGet(request, 'created_at');
+                        const timeAgo = createdAt ? formatTimeAgoLocal(createdAt) : 'Unknown time';
+                        
+                        return `
+                            <div class="request-item ${statusBadgeClass}">
+                                <div class="request-header">
+                                    <span class="request-id">REQ-${shortId}</span>
+                                    <span class="status-badge ${statusBadgeClass}">${status}</span>
+                                </div>
+                                <div class="request-items">${displayItems}</div>
+                                <div class="request-date">${timeAgo}</div>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    console.log('✅ Recent activity refreshed');
+                } else {
+                    // No recent activity found
+                    recentActivity.innerHTML = `
+                        <div class="empty-state">
+                            <div style="text-align: center; padding: 40px 20px; color: #6b7280;">
+                                <svg style="width: 48px; height: 48px; margin: 0 auto 16px; display: block; opacity: 0.5;" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                </svg>
+                                <h3 style="margin: 0 0 8px; font-size: 16px; font-weight: 600;">No Recent Activity</h3>
+                                <p style="margin: 0; font-size: 14px;">Your recent PPE requests will appear here</p>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                console.error('❌ Failed to load recent activity:', error);
+                // Show error state with retry option
+                recentActivity.innerHTML = `
+                    <div class="error-state">
+                        <div style="text-align: center; padding: 40px 20px; color: #ef4444;">
+                            <svg style="width: 48px; height: 48px; margin: 0 auto 16px; display: block;" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="15" y1="9" x2="9" y2="15"></line>
+                                <line x1="9" y1="9" x2="15" y2="15"></line>
+                            </svg>
+                            <h3 style="margin: 0 0 8px; font-size: 16px; font-weight: 600;">Failed to Load</h3>
+                            <p style="margin: 0 0 16px; font-size: 14px;">Unable to fetch recent activity</p>
+                            <button onclick="loadRecentActivity()" style="
+                                background: #3b82f6; color: white; border: none; padding: 8px 16px; 
+                                border-radius: 6px; font-size: 14px; cursor: pointer;
+                            ">🔄 Try Again</button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        // Legacy formatTimeAgo function for backward compatibility
+        // Now uses timezone-aware utilities when available
+        function formatTimeAgo(timestamp) {
+            // Use timezone-aware utility if available, otherwise fallback to legacy
+            if (typeof formatTimeAgoLocal === 'function') {
+                return formatTimeAgoLocal(timestamp);
+            }
+            
+            // Legacy fallback (kept for backward compatibility)
+            try {
+                const now = new Date();
+                const date = new Date(timestamp);
+                const diffMs = now - date;
+                const diffMins = Math.floor(diffMs / 60000);
+                const diffHours = Math.floor(diffMs / 3600000);
+                const diffDays = Math.floor(diffMs / 86400000);
+                
+                if (diffMins < 1) return 'Just now';
+                if (diffMins < 60) return `${diffMins}m ago`;
+                if (diffHours < 24) return `${diffHours}h ago`;
+                if (diffDays < 7) return `${diffDays}d ago`;
+                
+                // For older items, show actual date
+                return date.toLocaleDateString();
+            } catch (error) {
+                return 'Unknown time';
+            }
+        }
+        
+        // Setup tab navigation
+        function setupTabNavigation() {
+            const tabBtns = document.querySelectorAll('.tab-btn');
+            const tabContents = document.querySelectorAll('.tab-content');
+            
+            tabBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // Remove active class from all tabs
+                    tabBtns.forEach(b => b.classList.remove('active'));
+                    tabContents.forEach(c => c.classList.remove('active'));
+                    
+                    // Add active class to clicked tab
+                    btn.classList.add('active');
+                    const tabId = btn.dataset.tab;
+                    document.getElementById(tabId).classList.add('active');
+                    
+                    // Load tab-specific data
+                    if (tabId === 'history') {
+                        loadRequestHistory();
+                    } else if (tabId === 'notifications') {
+                        loadNotifications();
+                    }
+                });
+            });
+        }
+        
+        // Setup automatic refresh for live data updates
+        function setupAutoRefresh() {
+            // Auto-refresh dashboard data every 30 seconds (for stats)
+            setInterval(async () => {
+                if (staffId && staffId !== 'guest') {
+                    console.log('🔄 Auto-refreshing dashboard data...');
+                    await loadDashboardData(false); // Don't show loading indicators for auto-refresh
+                }
+            }, 30000); // 30 seconds
+            
+            // Auto-refresh current tab data every 15 seconds
+            setInterval(async () => {
+                if (staffId && staffId !== 'guest') {
+                    const activeTab = document.querySelector('.tab-content.active');
+                    if (activeTab) {
+                        const tabId = activeTab.id;
+                        console.log(`🔄 Auto-refreshing ${tabId} data...`);
+                        
+                        if (tabId === 'dashboard') {
+                            // Recent activity is already refreshed with dashboard data
+                        } else if (tabId === 'history') {
+                            await loadRequestHistory();
+                        } else if (tabId === 'notifications') {
+                            await loadNotifications();
+                        }
+                    }
+                }
+            }, 15000); // 15 seconds
+            
+            console.log('✅ Auto-refresh setup complete - Dashboard: 30s, Active tab: 15s');
+        }
+        
+        // Load request history
+        async function loadRequestHistory() {
+            const historyContainer = document.getElementById('requestHistory');
+            
+            if (!staffId || staffId === 'guest') {
+                // Show demo data for guests
+                setTimeout(() => {
+                    historyContainer.innerHTML = `
+                        <div class="request-item approved">
+                            <div class="request-header">
+                                <span class="request-id">REQ-001</span>
+                                <span class="status-badge approved">approved</span>
+                            </div>
+                            <div class="request-items">🥽 Hard Hat, 👓 Safety Goggles</div>
+                            <div class="request-date">2 hours ago • Approved by Safety Officer</div>
+                        </div>
+                        <div class="request-item pending">
+                            <div class="request-header">
+                                <span class="request-id">REQ-002</span>
+                                <span class="status-badge pending">pending</span>
+                            </div>
+                            <div class="request-items">🦺 High-Vis Vest, 🧤 Gloves (2)</div>
+                            <div class="request-date">1 day ago • Awaiting approval</div>
+                        </div>
+                        <div class="request-item rejected">
+                            <div class="request-header">
+                                <span class="request-id">REQ-003</span>
+                                <span class="status-badge rejected">rejected</span>
+                            </div>
+                            <div class="request-items">🥾 Steel Boots</div>
+                            <div class="request-date">3 days ago • Insufficient justification</div>
+                        </div>
+                    `;
+                }, 500);
+                return;
+            }
+            
+            try {
+                // Add cache-busting to get fresh data
+                const timestamp = Date.now();
+                const response = await fetch(`/api/ppe-requests/staff/${staffId}/history?_=${timestamp}`, {
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success && safeArray(result.requests).length > 0) {
+                    historyContainer.innerHTML = safeArray(result.requests).map(request => {
+                        const status = safeGet(request, 'status', 'unknown').toLowerCase();
+                        const date = safeGet(request, 'created_at') ? 
+                                   formatDateOnlyLocal(request.created_at) : 'Unknown Date';
+                        const shortId = safeGet(request, 'id', 'UNKNOWN').substring(0, 8).toUpperCase();
+                        
+                        return `
+                            <div class="request-item ${status}">
+                                <div class="request-header">
+                                    <span class="request-id">${shortId}</span>
+                                    <span class="status-badge ${status}">${status}</span>
+                                </div>
+                                <div class="request-items">${safeGet(request, 'items', 'No items specified')}</div>
+                                <div class="request-date">${date} ${request.notes ? '• ' + request.notes : ''}</div>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    console.log('✅ Request history refreshed');
+                } else {
+                    historyContainer.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📋</div>
+                            <h3>No Request History</h3>
+                            <p>You haven't submitted any PPE requests yet.<br>Use the Request tab to submit your first request.</p>
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                console.error('❌ Failed to load request history:', error);
+                historyContainer.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚠️</div>
+                        <h3>Unable to Load History</h3>
+                        <p>There was an error loading your request history.</p>
+                        <button onclick="loadRequestHistory()" style="
+                            background: #3b82f6; color: white; border: none; padding: 8px 16px; 
+                            border-radius: 6px; font-size: 14px; cursor: pointer; margin-top: 16px;
+                        ">🔄 Try Again</button>
+                    </div>
+                `;
+            }
+        }
+        
+        // Load notifications
+        async function loadNotifications() {
+            const notificationsList = document.getElementById('notificationsList');
+            
+            if (!staffId || staffId === 'guest') {
+                // Show demo data for guests
+                setTimeout(() => {
+                    notificationsList.innerHTML = `
+                        <div class="notification-item unread">
+                            <div class="timestamp">2h ago</div>
+                            <h4>✅ PPE Request Approved</h4>
+                            <p>Your request for Hard Hat and Safety Goggles has been approved. Items are ready for collection.</p>
+                        </div>
+                        <div class="notification-item">
+                            <div class="timestamp">1d ago</div>
+                            <h4>📋 New Request Submitted</h4>
+                            <p>Your PPE request (REQ-002) has been submitted and is awaiting approval.</p>
+                        </div>
+                        <div class="notification-item">
+                            <div class="timestamp">3d ago</div>
+                            <h4>❌ Request Rejected</h4>
+                            <p>Your request for Steel Boots was rejected: Insufficient justification provided.</p>
+                        </div>
+                    `;
+                }, 500);
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/notifications/staff/${staffId}`);
+                const result = await response.json();
+                
+                if (result.success && safeArray(result.notifications).length > 0) {
+                    notificationsList.innerHTML = safeArray(result.notifications).map(notification => {
+                        const timestamp = safeGet(notification, 'sent_at') ? 
+                                        formatWithTimezoneLocal(notification.sent_at) : 'Unknown Time';
+                        const isUnread = !safeGet(notification, 'read_at');
+                        const notificationId = safeGet(notification, 'id', 'unknown');
+                        
+                        return `
+                            <div class="notification-item ${isUnread ? 'unread' : ''}" data-notification-id="${notificationId}">
+                                <div class="timestamp">${timestamp}</div>
+                                <h4>${safeGet(notification, 'title', 'No Title')}</h4>
+                                <p>${safeGet(notification, 'body', 'No Message')}</p>
+                                ${isUnread ? `<button class="btn-secondary" onclick="markNotificationAsRead('${notificationId}')">Mark as read</button>` : ''}
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    notificationsList.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🔔</div>
+                            <h3>No Notifications</h3>
+                            <p>You don't have any notifications yet.<br>You'll receive alerts about your PPE requests here.</p>
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                console.error('Failed to load notifications:', error);
+                notificationsList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚠️</div>
+                        <h3>Unable to Load Notifications</h3>
+                        <p>There was an error loading your notifications. Please try again later.</p>
+                    </div>
+                `;
+            }
+        }
+        
+        // Mark notification as read
+        async function markNotificationAsRead(notificationId) {
+            try {
+                await fetch(`/api/notifications/${notificationId}/read`, {
+                    method: 'PUT'
+                });
+                
+                // Remove unread styling
+                const notificationElement = document.querySelector(`[data-notification-id="${notificationId}"]`);
+                if (notificationElement) {
+                    notificationElement.classList.remove('unread');
+                    const button = notificationElement.querySelector('.btn-secondary');
+                    if (button) button.remove();
+                }
+                
+            } catch (error) {
+                console.error('Failed to mark notification as read:', error);
+            }
+        }
+        
+        // Setup photo capture
+        function setupPhotoCapture() {
+            const photoInput = document.getElementById('photoInput');
+            const photoPreview = document.getElementById('photoPreview');
+            const submitBtn = document.getElementById('submitConditionReport');
+            const notesInput = document.getElementById('conditionNotes');
+            
+            photoInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        photoPreview.src = e.target.result;
+                        photoPreview.style.display = 'block';
+                        updateSubmitButton();
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+            
+            notesInput.addEventListener('input', updateSubmitButton);
+            
+            submitBtn.addEventListener('click', submitConditionReport);
+            
+            function updateSubmitButton() {
+                const hasPhoto = photoPreview.style.display !== 'none';
+                const hasNotes = notesInput.value.trim().length > 0;
+                submitBtn.disabled = !(hasPhoto || hasNotes);
+            }
+        }
+        
+        // Submit condition report
+        async function submitConditionReport() {
+            const photoInput = document.getElementById('photoInput');
+            const notes = document.getElementById('conditionNotes').value.trim();
+            
+            // Always require description
+            if (!notes) {
+                showToast('Please add a description of the PPE condition', 'error');
+                return;
+            }
+            
+            const submitBtn = document.getElementById('submitConditionReport');
+            submitBtn.innerHTML = '<div class="spinner"></div> Submitting...';
+            submitBtn.disabled = true;
+            
+            try {
+                // Get staff name from previous verification
+                const staffName = localStorage.getItem('staffName') || staffId || 'Unknown Staff';
+                
+                const formData = new FormData();
+                formData.append('staffId', staffId || 'guest');
+                formData.append('staffName', staffName);
+                formData.append('description', notes);
+                formData.append('location', 'Mobile App');
+                formData.append('severity', 'medium');
+                
+                if (photoInput.files[0]) {
+                    formData.append('photo', photoInput.files[0]);
+                }
+                
+                const response = await fetch('/api/condition-reports/submit', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('Condition report submitted successfully', 'success');
+                    
+                    // Reset form
+                    const photoPreview = document.getElementById('photoPreview');
+                    photoPreview.style.display = 'none';
+                    photoPreview.src = '';
+                    document.getElementById('conditionNotes').value = '';
+                    photoInput.value = '';
+                } else {
+                    showToast(result.error || 'Failed to submit report', 'error');
+                }
+                
+            } catch (error) {
+                showToast('Failed to submit report', 'error');
+                console.error('Submit condition report error:', error);
+            } finally {
+                submitBtn.innerHTML = '📤 Submit Condition Report';
+                submitBtn.disabled = true;
+            }
+        }
+        
+        // Open full request form
+        function openFullRequestForm() {
+            window.location.href = '/worker.html';
+        }
+        
+        // Handle notification click
+        function handleNotificationClick(data) {
+            console.log('Notification clicked:', data);
+            
+            // Switch to appropriate tab based on notification type
+            if (data.type === 'request_approved' || data.type === 'request_rejected') {
+                // Switch to history tab
+                document.querySelector('[data-tab="history"]').click();
+            }
+        }
+        
+        // Show toast notification
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+        
+        
+        // Verify staff authentication on page load
+        async function verifyAndAuthenticateStaff() {
+            console.log('Starting fresh staff verification process...');
+            
+            // Always prompt user for Staff ID (no caching)
+            let attempts = 0;
+            const maxAttempts = 3;
+            
+            while (attempts < maxAttempts) {
+                const enteredStaffId = prompt(`Enter your Staff ID to access dashboard:${attempts > 0 ? '\n(Invalid ID - please try again)' : ''}`);
+                
+                if (!enteredStaffId) {
+                    // User cancelled
+                    console.log('User cancelled staff ID entry');
+                    showAccessDeniedMessage();
+                    return;
+                }
+                
+                // Verify staff ID with server
+                try {
+                    const response = await fetch('/api/staff/verify', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ staffId: enteredStaffId })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.valid) {
+                        // Staff ID is valid - store in memory only, no localStorage caching
+                        staffId = enteredStaffId;
+                        
+                        // Store staff name for condition reports
+                        localStorage.setItem('staffName', result.staff.name);
+                        
+                        // Update header with staff info
+                        updateHeaderWithStaffInfo(result.staff);
+                        
+                        // Re-setup push notifications with verified staff ID
+                        // setupPushNotifications(); // Disabled to prevent UI freezing
+                        
+                        showToast(`Welcome ${result.staff.name}!`, 'success');
+                        return;
+                    } else {
+                        attempts++;
+                        if (attempts >= maxAttempts) {
+                            showAccessDeniedMessage();
+                            return;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Staff verification error:', error);
+                    attempts++;
+                    if (attempts >= maxAttempts) {
+                        showAccessDeniedMessage();
+                        return;
+                    }
+                }
+            }
+        }
+        
+        function updateHeaderWithStaffInfo(staff) {
+            const header = document.querySelector('.header h1');
+            const subtitle = document.querySelector('.header p');
+            
+            // Safe data extraction with fallbacks
+            const staffName = safeGet(staff, 'name', 'Unknown Staff');
+            const staffId = safeGet(staff, 'staffId', safeGet(staff, 'staff_id', 'N/A'));
+            const department = safeGet(staff, 'department', 'N/A');
+            
+            header.textContent = `PPE Dashboard - ${staffName}`;
+            subtitle.textContent = `Staff ID: ${staffId} | Department: ${department}`;
+        }
+        
+        function showAccessDeniedMessage() {
+            const container = document.querySelector('.container');
+            container.innerHTML = `
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; text-align: center; color: #dc2626;">
+                    <div style="font-size: 64px; margin-bottom: 20px;">🚫</div>
+                    <h2 style="color: #dc2626; margin-bottom: 16px;">Access Denied</h2>
+                    <p style="color: #6b7280; margin-bottom: 24px;">Invalid Staff ID or verification failed.</p>
+                    <p style="color: #6b7280; margin-bottom: 24px;">Please contact your supervisor to verify your Staff ID.</p>
+                    <button onclick="location.reload()" style="
+                        background: #000000; 
+                        color: white; 
+                        border: none; 
+                        padding: 12px 24px; 
+                        border-radius: 8px; 
+                        font-size: 14px; 
+                        cursor: pointer;
+                        font-weight: 600;
+                    ">
+                        Try Again
+                    </button>
+                </div>
+            `;
+        }
+    </script>
+
+    <!-- Dynamic Timezone Utilities (Embedded) -->
+    <script>
+        /**
+         * Dynamic Timezone Detection and Conversion Utilities
+         * Automatically detects user's timezone and converts UTC timestamps
+         */
+
+        class TimezoneUtils {
+            constructor() {
+                this.userTimezone = this.detectUserTimezone();
+                this.initializeUtils();
+            }
+
+            detectUserTimezone() {
+                try {
+                    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                    console.log(`🌍 Detected user timezone: ${timezone}`);
+                    return timezone;
+                } catch (error) {
+                    console.warn('⚠️ Failed to detect timezone, using UTC as fallback:', error);
+                    return 'UTC';
+                }
+            }
+
+            getTimezoneInfo() {
+                try {
+                    const now = new Date();
+                    const formatter = new Intl.DateTimeFormat('en', {
+                        timeZone: this.userTimezone,
+                        timeZoneName: 'long'
+                    });
+                    
+                    const parts = formatter.formatToParts(now);
+                    const timeZoneName = parts.find(part => part.type === 'timeZoneName')?.value || this.userTimezone;
+                    
+                    const offsetMs = now.getTimezoneOffset() * 60000;
+                    const offsetHours = -offsetMs / 3600000;
+                    const offsetString = offsetHours >= 0 ? `+${offsetHours}` : `${offsetHours}`;
+                    
+                    return {
+                        timezone: this.userTimezone,
+                        displayName: timeZoneName,
+                        offset: offsetHours,
+                        offsetString: `UTC${offsetString}`,
+                        abbreviation: this.getTimezoneAbbreviation(now)
+                    };
+                } catch (error) {
+                    console.warn('⚠️ Failed to get timezone info:', error);
+                    return {
+                        timezone: 'UTC',
+                        displayName: 'Coordinated Universal Time',
+                        offset: 0,
+                        offsetString: 'UTC+0',
+                        abbreviation: 'UTC'
+                    };
+                }
+            }
+
+            getTimezoneAbbreviation(date = new Date()) {
+                try {
+                    const formatter = new Intl.DateTimeFormat('en', {
+                        timeZone: this.userTimezone,
+                        timeZoneName: 'short'
+                    });
+                    
+                    const parts = formatter.formatToParts(date);
+                    return parts.find(part => part.type === 'timeZoneName')?.value || this.userTimezone;
+                } catch (error) {
+                    return 'UTC';
+                }
+            }
+
+            convertToLocalTime(timestamp) {
+                try {
+                    let date;
+                    
+                    if (typeof timestamp === 'string') {
+                        // Check if timestamp has timezone info
+                        if (timestamp.includes('T') && timestamp.includes('Z')) {
+                            // This is UTC format
+                            date = new Date(timestamp);
+                        } else if (timestamp.includes('T') && (timestamp.includes('+') || timestamp.includes('-'))) {
+                            // This has timezone offset
+                            date = new Date(timestamp);
+                        } else {
+                            // This is local database time without timezone (e.g., '2025-07-27 14:06:05')
+                            const localDate = new Date(timestamp);
+                            
+                            // Check if DB stores local time but JS parses as UTC
+                            const now = new Date();
+                            const timeDiffFromNow = Math.abs(now.getTime() - localDate.getTime()) / (1000 * 60 * 60);
+                            
+                            if (timeDiffFromNow > 6 && timeDiffFromNow < 10) {
+                                // Database stores local time but JS parses as UTC
+                                // Add back 8 hours for Malaysia timezone
+                                date = new Date(localDate.getTime() + (8 * 60 * 60 * 1000));
+                            } else {
+                                date = localDate;
+                            }
+                        }
+                    } else {
+                        date = timestamp;
+                    }
+                    
+                    if (isNaN(date.getTime())) {
+                        throw new Error('Invalid timestamp');
+                    }
+
+                    return date;
+                } catch (error) {
+                    console.warn('⚠️ Failed to convert timestamp:', error);
+                    return new Date();
+                }
+            }
+
+            formatInUserTimezone(utcTimestamp, options = {}) {
+                try {
+                    const date = this.convertToLocalTime(utcTimestamp);
+                    
+                    const defaultOptions = {
+                        timeZone: this.userTimezone,
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: false
+                    };
+
+                    const formatOptions = { ...defaultOptions, ...options };
+                    return date.toLocaleString('en-GB', formatOptions);
+                } catch (error) {
+                    console.warn('⚠️ Failed to format timestamp:', error);
+                    return 'Invalid Date';
+                }
+            }
+
+            formatTimeAgo(utcTimestamp) {
+                try {
+                    const date = this.convertToLocalTime(utcTimestamp);
+                    const now = new Date();
+                    const diffMs = now - date;
+                    const diffMins = Math.floor(diffMs / 60000);
+                    const diffHours = Math.floor(diffMs / 3600000);
+                    const diffDays = Math.floor(diffMs / 86400000);
+                    const diffWeeks = Math.floor(diffDays / 7);
+                    const diffMonths = Math.floor(diffDays / 30);
+                    
+                    if (diffMs < 0) return 'In the future';
+                    if (diffMins < 1) return 'Just now';
+                    if (diffMins < 60) return `${diffMins}m ago`;
+                    if (diffHours < 24) return `${diffHours}h ago`;
+                    if (diffDays < 7) return `${diffDays}d ago`;
+                    if (diffWeeks < 4) return `${diffWeeks}w ago`;
+                    if (diffMonths < 12) return `${diffMonths}mo ago`;
+                    
+                    return this.formatInUserTimezone(utcTimestamp, {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                    });
+                } catch (error) {
+                    console.warn('⚠️ Failed to format time ago:', error);
+                    return 'Unknown time';
+                }
+            }
+
+            formatDateOnly(utcTimestamp) {
+                return this.formatInUserTimezone(utcTimestamp, {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                });
+            }
+
+            formatWithTimezone(utcTimestamp, options = {}) {
+                const formatted = this.formatInUserTimezone(utcTimestamp, options);
+                const tzInfo = this.getTimezoneInfo();
+                return `${formatted} (${tzInfo.abbreviation})`;
+            }
+
+            initializeUtils() {
+                window.TimezoneUtils = this;
+                window.formatInLocalTimezone = (timestamp, options) => this.formatInUserTimezone(timestamp, options);
+                window.formatTimeAgoLocal = (timestamp) => this.formatTimeAgo(timestamp);
+                window.formatDateOnlyLocal = (timestamp) => this.formatDateOnly(timestamp);
+                window.formatWithTimezoneLocal = (timestamp, options) => this.formatWithTimezone(timestamp, options);
+                
+                console.log('🕐 Timezone utilities initialized for:', this.getTimezoneInfo());
+            }
+        }
+
+        // Initialize timezone utilities when script loads
+        const timezoneUtils = new TimezoneUtils();
+    </script>
+</body>
+</html>

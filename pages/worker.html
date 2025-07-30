@@ -1,0 +1,1676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PPE Request System - Worker Interface</title>
+    <link rel="manifest" href="/frontend/manifest.json?v={{MANIFEST_VERSION}}" crossorigin="use-credentials">
+    <meta name="theme-color" content="#000000">
+    
+    <!-- Cache control -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            min-height: 100vh;
+            color: #1f2937;
+        }
+        
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+            color: #000000;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        /* Loading Overlay Styles */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .loading-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .loading-content {
+            background: white;
+            padding: 32px;
+            border-radius: 16px;
+            text-align: center;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            max-width: 320px;
+            width: 90%;
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+
+        .loading-overlay.active .loading-content {
+            transform: scale(1);
+        }
+
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        .loading-text {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 8px;
+        }
+
+        .loading-subtext {
+            font-size: 14px;
+            color: #6b7280;
+            line-height: 1.4;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Form overlay state */
+        .form-loading {
+            pointer-events: none;
+            opacity: 0.6;
+            position: relative;
+        }
+
+        .form-loading::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            z-index: 10;
+            border-radius: 12px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #1f2937;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #000000;
+        }
+        
+        .ppe-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        .ppe-item:last-child {
+            border-bottom: none;
+        }
+        
+        .ppe-item span {
+            font-size: 16px;
+            font-weight: 500;
+        }
+        
+        .toggle {
+            width: 60px;
+            height: 32px;
+            background: #e5e7eb;
+            border-radius: 16px;
+            position: relative;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        
+        .toggle::after {
+            content: '';
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s ease;
+        }
+        
+        .toggle.active {
+            background: #000000;
+        }
+        
+        .toggle.active::after {
+            transform: translateX(28px);
+        }
+        
+        .quantity-control {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .quantity-btn {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #e5e7eb;
+            background: white;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .quantity-btn:hover {
+            border-color: #000000;
+            color: #000000;
+        }
+        
+        .quantity-display {
+            font-size: 18px;
+            font-weight: 600;
+            min-width: 40px;
+            text-align: center;
+        }
+        
+        .btn-primary {
+            width: 100%;
+            background: #000000;
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            background: #333333;
+            transform: translateY(-1px);
+            backdrop-filter: blur(10px);
+        }
+        
+        .btn-primary:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        
+        
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 24px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .toast.success {
+            background: #000000;
+        }
+        
+        .toast.error {
+            background: #dc2626;
+        }
+        
+        .toast.warning {
+            background: #f59e0b;
+        }
+        
+        .toast.show {
+            opacity: 1;
+        }
+        
+        .safety-note {
+            font-size: 14px;
+            color: #6b7280;
+            text-align: center;
+            margin-top: 12px;
+        }
+        
+        .request-summary {
+            background: #f3f4f6;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .request-summary h4 {
+            margin-bottom: 8px;
+            color: #1f2937;
+        }
+        
+        .request-summary-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .request-summary-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        /* Station-based PPE display styles */
+        .ppe-info {
+            flex: 1;
+        }
+        
+        .ppe-name {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+        
+        .ppe-symbol {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 4px;
+        }
+        
+        .ppe-stock {
+            font-size: 12px;
+            color: #059669;
+            font-weight: 500;
+        }
+        
+        .ppe-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .quantity-display {
+            min-width: 30px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading Staff Information</div>
+            <div class="loading-subtext">Please wait while we retrieve your details...</div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="header">
+            <h1>PPE Request System</h1>
+            <p>Request your Personal Protective Equipment</p>
+        </div>
+        
+        <!-- Main Form -->
+        <div id="mainForm">
+        
+        <!-- Worker Information -->
+        <div class="card">
+            <h3 class="section-title">👤 Worker Information</h3>
+            <div class="form-group">
+                <label for="staffId">Staff ID</label>
+                <input type="text" id="staffId" placeholder="Enter your staff ID (e.g., EMP001)" required>
+            </div>
+            <div class="form-group">
+                <label for="workerName">Full Name</label>
+                <input type="text" id="workerName" placeholder="Enter your full name" required>
+            </div>
+            <div class="form-group">
+                <label for="department">Department</label>
+                <select id="department" required>
+                    <option value="">Choose department...</option>
+                    <!-- Departments loaded dynamically -->
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="workLocation">Work Location</label>
+                <input type="text" id="workLocation" placeholder="e.g., Production Floor, Warehouse Section A" required>
+            </div>
+            <div class="form-group">
+                <label for="workReason">Purpose/Task</label>
+                <input type="text" id="workReason" placeholder="e.g., Equipment maintenance, Quality inspection" required>
+            </div>
+        </div>
+
+        <!-- Station Selection -->
+        <div class="card">
+            <h3 class="section-title">🏢 Station Selection</h3>
+            <div class="form-group">
+                <label for="stationSelect">Select PPE Station</label>
+                <select id="stationSelect" required>
+                    <option value="">Choose station...</option>
+                </select>
+                <button type="button" id="retryStationsBtn" onclick="retryLoadingStations()" style="display:none; margin-top: 8px; padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                    🔄 Retry Loading Stations
+                </button>
+                <small style="color: #6b7280; font-size: 14px; margin-top: 4px; display: block;">
+                    Select the station where you need to collect PPE items
+                </small>
+            </div>
+        </div>
+
+        <!-- PPE Selection -->
+        <div class="card">
+            <h3 class="section-title">🛡️ Select PPE Items</h3>
+            <div id="ppeItemsContainer">
+                <!-- PPE items will be loaded dynamically -->
+                <div style="text-align: center; padding: 20px; color: #6b7280;">
+                    Loading PPE items...
+                </div>
+            </div>
+        </div>
+
+        <!-- Request Summary -->
+        <div class="card" id="requestSummary" style="display: none;">
+            <h3 class="section-title">📋 Request Summary</h3>
+            <div id="summaryContent"></div>
+        </div>
+        
+        <!-- Submit Section -->
+        <div class="card">
+            <button id="submitBtn" class="btn-primary" disabled>
+                📤 Submit PPE Request
+            </button>
+            
+            <p class="safety-note">
+                ⚠️ <strong>Note:</strong> Your request will be reviewed by the Safety Officer. You'll receive notification when approved.
+            </p>
+        </div>
+        
+        </div> <!-- End mainForm -->
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        // Safe utility functions to prevent undefined values
+        function safeGet(obj, key, fallback = 'N/A') {
+            if (!obj || typeof obj !== 'object') return fallback;
+            
+            // Support nested property access with dot notation
+            if (key.includes('.')) {
+                const keys = key.split('.');
+                let current = obj;
+                for (const k of keys) {
+                    if (current && typeof current === 'object' && k in current) {
+                        current = current[k];
+                    } else {
+                        return fallback;
+                    }
+                }
+                return current !== undefined && current !== null ? current : fallback;
+            }
+            
+            const value = obj[key];
+            return value !== undefined && value !== null ? value : fallback;
+        }
+
+        function safeText(value, fallback = 'N/A') {
+            return value !== undefined && value !== null && value !== '' ? String(value).trim() : fallback;
+        }
+
+        function safeHTML(content, fallback = 'N/A') {
+            return content !== undefined && content !== null && content !== '' ? content : fallback;
+        }
+
+        // Loading Overlay Management Functions
+        function showLoadingOverlay(message = 'Loading Staff Information', subtext = 'Please wait while we retrieve your details...') {
+            const overlay = document.getElementById('loadingOverlay');
+            const textElement = overlay.querySelector('.loading-text');
+            const subtextElement = overlay.querySelector('.loading-subtext');
+            const mainForm = document.getElementById('mainForm');
+            
+            // Clear any existing timeout
+            if (loadingOverlayTimeout) {
+                clearTimeout(loadingOverlayTimeout);
+            }
+            
+            // Update overlay text
+            if (textElement) textElement.textContent = message;
+            if (subtextElement) subtextElement.textContent = subtext;
+            
+            // Show overlay with animation
+            overlay.classList.add('active');
+            
+            // Add loading state to form (prevents interaction)
+            mainForm.classList.add('form-loading');
+            
+            // Safety timeout - auto-hide after 10 seconds to prevent stuck overlay
+            loadingOverlayTimeout = setTimeout(() => {
+                console.warn('⚠️ Loading overlay auto-hidden due to timeout');
+                hideLoadingOverlay();
+                showToast('Loading took too long - please try again', 'warning');
+            }, 10000);
+            
+            console.log('🔄 Loading overlay shown:', message);
+        }
+
+        function hideLoadingOverlay() {
+            const overlay = document.getElementById('loadingOverlay');
+            const mainForm = document.getElementById('mainForm');
+            
+            // Clear the safety timeout
+            if (loadingOverlayTimeout) {
+                clearTimeout(loadingOverlayTimeout);
+                loadingOverlayTimeout = null;
+            }
+            
+            // Hide overlay
+            overlay.classList.remove('active');
+            
+            // Remove loading state from form
+            mainForm.classList.remove('form-loading');
+            
+            console.log('✅ Loading overlay hidden');
+        }
+
+        function showLoadingError(message = 'Unable to load staff information', subtext = 'Please check your connection and try again') {
+            const overlay = document.getElementById('loadingOverlay');
+            const textElement = overlay.querySelector('.loading-text');
+            const subtextElement = overlay.querySelector('.loading-subtext');
+            const spinner = overlay.querySelector('.loading-spinner');
+            
+            // Update to error state
+            if (textElement) {
+                textElement.textContent = message;
+                textElement.style.color = '#dc2626';
+            }
+            if (subtextElement) {
+                subtextElement.textContent = subtext;
+            }
+            if (spinner) {
+                spinner.style.borderTopColor = '#dc2626';
+                spinner.style.animation = 'none';
+            }
+            
+            // Auto-hide after 3 seconds
+            setTimeout(() => {
+                hideLoadingOverlay();
+                // Reset error state
+                if (textElement) textElement.style.color = '#1f2937';
+                if (spinner) {
+                    spinner.style.borderTopColor = '#3b82f6';
+                    spinner.style.animation = 'spin 1s linear infinite';
+                }
+            }, 3000);
+            
+            console.log('❌ Loading error shown:', message);
+        }
+
+        function safeNumber(value, fallback = 0) {
+            const num = Number(value);
+            return !isNaN(num) ? num : fallback;
+        }
+
+        function safeArray(arr, fallback = []) {
+            return Array.isArray(arr) ? arr : fallback;
+        }
+
+        // Load departments into dropdown
+        async function loadDepartments() {
+            try {
+                const response = await fetch('/api/departments');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const departments = data.departments || [];
+                    const departmentSelect = document.getElementById('department');
+                    
+                    if (departmentSelect) {
+                        // Clear existing options except first
+                        departmentSelect.innerHTML = '<option value="">Choose department...</option>';
+                        
+                        // Add departments
+                        departments.forEach(dept => {
+                            const option = document.createElement('option');
+                            option.value = dept.name;
+                            option.textContent = dept.name;
+                            departmentSelect.appendChild(option);
+                        });
+                        
+                        // Add "Add New Department" option
+                        const addNewOption = document.createElement('option');
+                        addNewOption.value = '__ADD_NEW__';
+                        addNewOption.textContent = '+ Add New Department';
+                        addNewOption.style.fontStyle = 'italic';
+                        addNewOption.style.color = '#059669';
+                        departmentSelect.appendChild(addNewOption);
+                    }
+                } else {
+                    console.error('Failed to load departments');
+                }
+            } catch (error) {
+                console.error('Error loading departments:', error);
+            }
+        }
+
+        // Handle department selection (including add new)
+        function handleDepartmentSelection(selectElement) {
+            if (selectElement.value === '__ADD_NEW__') {
+                const newDepartment = prompt('Enter new department name:');
+                if (newDepartment && newDepartment.trim()) {
+                    addNewDepartment(newDepartment.trim(), selectElement);
+                } else {
+                    selectElement.value = ''; // Reset selection
+                }
+            }
+        }
+
+        // Add new department
+        async function addNewDepartment(name, selectElement) {
+            try {
+                const response = await fetch('/api/departments', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        description: `${name} department`
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showToast(`✅ Department "${name}" added successfully`, 'success');
+                    
+                    // Reload departments
+                    await loadDepartments();
+                    
+                    // Select the new department
+                    selectElement.value = name;
+                } else {
+                    const error = await response.json();
+                    showToast(`❌ Failed to add department: ${error.error}`, 'error');
+                    selectElement.value = ''; // Reset selection
+                }
+            } catch (error) {
+                console.error('Error adding department:', error);
+                showToast('❌ Failed to add department', 'error');
+                selectElement.value = ''; // Reset selection
+            }
+        }
+
+        // Global variables
+        let ppeQuantities = {};
+        let ppeTypes = [];
+        let companies = [];
+        let workerConfig = null; // Store worker configuration including default station
+        
+        // Multiple initialization triggers to handle caching issues
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('Worker interface loaded - DOMContentLoaded trigger');
+            await initializeWorkerInterface();
+        });
+        
+        // Fallback for cases where DOMContentLoaded doesn't fire properly
+        window.addEventListener('load', async () => {
+            console.log('Worker interface loaded - window.load trigger');
+            if (!window.workerInitialized) {
+                await initializeWorkerInterface();
+            }
+        });
+        
+        // Emergency fallback with timeout
+        setTimeout(async () => {
+            console.log('Worker interface loaded - timeout trigger');
+            if (!window.workerInitialized) {
+                console.log('🔄 Emergency initialization - other triggers failed');
+                await initializeWorkerInterface();
+            }
+        }, 2000);
+        
+        // Consolidated initialization function
+        async function initializeWorkerInterface() {
+            if (window.workerInitialized) {
+                console.log('Worker already initialized, skipping');
+                return;
+            }
+            
+            console.log('🚀 Initializing worker interface...');
+            
+            // Unregister service workers to prevent caching issues (Stack Overflow solution)
+            if ('serviceWorker' in navigator) {
+                try {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (const registration of registrations) {
+                        await registration.unregister();
+                        console.log('🗑️ Unregistered service worker:', registration.scope);
+                    }
+                } catch (error) {
+                    console.log('Service worker unregister failed:', error);
+                }
+            }
+            
+            // Clear service worker cache for manifest (solution from Stack Overflow)
+            if ('serviceWorker' in navigator && 'caches' in window) {
+                try {
+                    const cacheNames = await caches.keys();
+                    for (const cacheName of cacheNames) {
+                        const cache = await caches.open(cacheName);
+                        const requests = await cache.keys();
+                        for (const request of requests) {
+                            if (request.url.includes('manifest.json')) {
+                                await cache.delete(request);
+                                console.log('🗑️ Cleared cached manifest:', request.url);
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.log('Cache clearing failed:', error);
+                }
+            }
+            
+            // Force reload manifest (Advanced Stack Overflow solution)
+            try {
+                const manifestLink = document.querySelector('link[rel="manifest"]');
+                if (manifestLink) {
+                    console.log('🔄 Applying advanced manifest reload...');
+                    
+                    // Remove existing manifest link completely
+                    manifestLink.remove();
+                    
+                    // Create fresh manifest link with unique URL
+                    const newManifestLink = document.createElement('link');
+                    newManifestLink.rel = 'manifest';
+                    newManifestLink.crossOrigin = 'use-credentials';
+                    newManifestLink.href = `/frontend/manifest.json?v=${Date.now()}&reload=true`;
+                    
+                    // Add to head
+                    document.head.appendChild(newManifestLink);
+                    
+                    // Verify it loads
+                    const response = await fetch(newManifestLink.href, { 
+                        cache: 'no-cache',
+                        credentials: 'include',
+                        headers: {
+                            'Cache-Control': 'no-cache, no-store, must-revalidate',
+                            'Pragma': 'no-cache'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const manifestData = await response.json();
+                        console.log('✅ Fresh manifest loaded successfully:', manifestData.name);
+                    } else {
+                        console.error('❌ Fresh manifest fetch failed:', response.status);
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Advanced manifest reload failed:', error);
+            }
+            
+            window.workerInitialized = true;
+            
+            try {
+                await loadWorkerConfiguration();
+                await loadStations();
+                await loadPPEItems();
+                await loadDepartments();
+                console.log('✅ Worker interface initialization complete');
+                
+            } catch (error) {
+                console.error('❌ Worker initialization failed:', error);
+                window.workerInitialized = false; // Allow retry
+                showToast('❌ Interface loading failed. Please use the retry button or refresh manually.', 'error');
+            }
+        }
+        
+        // Load worker configuration including default station
+        async function loadWorkerConfiguration() {
+            try {
+                const cacheBust = Date.now();
+                const response = await fetch(`/api/config/worker-config?_=${cacheBust}`, {
+                    headers: {
+                        'Cache-Control': 'no-cache',
+                        'Pragma': 'no-cache'
+                    }
+                });
+                const result = await response.json();
+                
+                if (safeGet(result, 'success') && safeGet(result, 'defaultStation')) {
+                    workerConfig = result;
+                    const defaultStationName = safeGet(workerConfig, 'defaultStation.name', 'Unknown Station');
+                    console.log('✅ Worker configuration loaded:', defaultStationName);
+                    
+                    // Update page title with system name if available
+                    const systemName = safeGet(result, 'systemName', '');
+                    if (systemName) {
+                        document.title = `${systemName} - Worker Interface`;
+                    }
+                } else {
+                    console.error('❌ Failed to load worker configuration:', result.error);
+                    showToast('⚠️ Configuration loading failed - will use station dropdown', 'warning');
+                    // No fallback station - let user select from dropdown
+                    workerConfig = {
+                        defaultStation: null,
+                        systemName: 'PPE Management System'
+                    };
+                }
+            } catch (error) {
+                console.error('❌ Configuration loading error:', error);
+                showToast('⚠️ Could not load system configuration - will use station dropdown', 'warning');
+                // No fallback station - let user select from dropdown
+                workerConfig = {
+                    defaultStation: null,
+                    systemName: 'PPE Management System'
+                };
+            }
+        }
+
+        // DOM elements
+        const staffId = document.getElementById('staffId');
+        const workerName = document.getElementById('workerName');
+        const department = document.getElementById('department');
+        const workLocation = document.getElementById('workLocation');
+        const workReason = document.getElementById('workReason');
+        // workerEmail removed - not used in current form
+        const submitBtn = document.getElementById('submitBtn');
+
+        // Form validation (removed - using enhanced version below)
+
+        // Staff verification variables
+        let staffVerificationTimeout = null;
+        let lastVerifiedStaffId = null;
+        let staffVerificationStatus = null;
+        let loadingOverlayTimeout = null; // Safety timeout for overlay
+
+        // Enhanced Staff ID validation with loading overlay protection
+        async function verifyStaffId(staffIdValue) {
+            if (!staffIdValue || staffIdValue.length < 3) {
+                clearStaffValidation();
+                hideLoadingOverlay(); // Ensure overlay is hidden for short inputs
+                return;
+            }
+
+            try {
+                // Show loading overlay immediately to prevent user interaction
+                showLoadingOverlay('Verifying Staff ID', 'Please wait while we validate your information...');
+                
+                // Clear any existing validation state
+                clearStaffValidation();
+                
+                console.log('🔍 Verifying staff ID:', staffIdValue);
+                
+                const response = await fetch('/api/staff/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'no-cache',
+                        'Pragma': 'no-cache'
+                    },
+                    body: JSON.stringify({ 
+                        staffId: staffIdValue
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                
+                if (result.valid && result.staff) {
+                    // Success - staff found
+                    showStaffValidation(true, result.staff);
+                    staffVerificationStatus = 'valid';
+                    lastVerifiedStaffId = staffIdValue;
+                    
+                    // Auto-fill worker information with safe property access
+                    const staffName = safeGet(result.staff, 'name', '');
+                    const staffDepartment = safeGet(result.staff, 'department', '');
+                    
+                    console.log('✅ Staff verified:', { name: staffName, department: staffDepartment });
+                    
+                    // Update loading message to show success
+                    showLoadingOverlay('Staff Verified!', `Welcome ${staffName}! Auto-filling your information...`);
+                    
+                    // Small delay to show success message, then auto-fill
+                    setTimeout(() => {
+                        if (staffName) {
+                            workerName.value = staffName;
+                            workerName.disabled = true;
+                            workerName.style.backgroundColor = '#f0f9ff';
+                        }
+                        
+                        if (staffDepartment) {
+                            // Set department but allow user to change if needed
+                            department.value = staffDepartment;
+                            // Visual indicator that this is from staff record
+                            department.style.backgroundColor = '#f0f9ff';
+                        }
+                        
+                        // Hide overlay after auto-fill is complete
+                        hideLoadingOverlay();
+                        
+                        console.log('📝 Auto-fill completed for:', staffName);
+                        
+                        // Validate form after auto-fill
+                        validateForm();
+                        
+                    }, 800); // Give user time to see success message
+                    
+                } else {
+                    // Staff ID not found or invalid
+                    const errorMessage = safeGet(result, 'message', 'Staff ID not found in directory');
+                    
+                    console.log('❌ Staff verification failed:', errorMessage);
+                    
+                    showStaffValidation(false, null, errorMessage);
+                    staffVerificationStatus = 'invalid';
+                    lastVerifiedStaffId = null;
+                    
+                    // Clear auto-filled information
+                    workerName.value = '';
+                    workerName.disabled = false;
+                    workerName.style.backgroundColor = '';
+                    department.value = '';
+                    department.style.backgroundColor = '';
+                    
+                    // Show error in overlay, then hide
+                    showLoadingError('Staff ID Not Found', errorMessage);
+                    
+                    validateForm();
+                }
+                
+            } catch (error) {
+                console.error('❌ Staff verification network error:', error);
+                
+                showStaffValidation(false, null, 'Connection error - please check your network and try again');
+                staffVerificationStatus = 'error';
+                lastVerifiedStaffId = null;
+                
+                // Clear auto-filled information on error
+                workerName.value = '';
+                workerName.disabled = false;
+                workerName.style.backgroundColor = '';
+                department.value = '';
+                department.style.backgroundColor = '';
+                
+                // Show network error in overlay
+                showLoadingError(
+                    'Connection Error', 
+                    'Unable to verify staff ID. Please check your connection and try again.'
+                );
+                
+                validateForm();
+            }
+        }
+
+        function showStaffValidation(isValid, staffData, errorMessage) {
+            // Remove existing validation elements
+            const existingValidation = document.querySelector('.staff-validation');
+            if (existingValidation) {
+                existingValidation.remove();
+            }
+
+            const staffIdContainer = staffId.parentElement;
+            const validationDiv = document.createElement('div');
+            validationDiv.className = 'staff-validation';
+            
+            if (isValid && staffData) {
+                const staffName = safeGet(staffData, 'name', 'Unknown Staff');
+                const staffDepartment = safeGet(staffData, 'department', '');
+                const staffPosition = safeGet(staffData, 'position', '');
+                
+                validationDiv.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 12px; background: #f8f9fa; border: 1px solid #000000; border-radius: 6px; color: #000000;">
+                        <span style="color: #000000;">✓</span>
+                        <div>
+                            <strong>${staffName}</strong>
+                            <div style="font-size: 12px; color: #047857;">
+                                ${staffDepartment ? `${staffDepartment}` : ''} 
+                                ${staffPosition ? `• ${staffPosition}` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                staffId.style.borderColor = '#000000';
+            } else {
+                const safeErrorMessage = safeText(errorMessage, 'Staff ID not found in directory');
+                validationDiv.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 12px; background: #fed7d7; border: 1px solid #e53e3e; border-radius: 6px; color: #742a2a;">
+                        <span style="color: #e53e3e;">✗</span>
+                        <div style="font-size: 14px;">
+                            ${safeErrorMessage}
+                        </div>
+                    </div>
+                `;
+                staffId.style.borderColor = '#e53e3e';
+            }
+            
+            staffIdContainer.appendChild(validationDiv);
+        }
+
+        function clearStaffValidation() {
+            const existingValidation = document.querySelector('.staff-validation');
+            if (existingValidation) {
+                existingValidation.remove();
+            }
+            staffId.style.borderColor = '#d1d5db';
+            staffVerificationStatus = null;
+            lastVerifiedStaffId = null;
+            
+            // Re-enable fields and clear auto-fill styling
+            workerName.disabled = false;
+            workerName.style.backgroundColor = '';
+            department.disabled = false;
+            department.style.backgroundColor = '';
+            
+            // Ensure loading overlay is hidden when clearing validation
+            hideLoadingOverlay();
+        }
+
+        // Enhanced staff ID input handler with debouncing
+        function handleStaffIdInput() {
+            const staffIdValue = staffId.value.trim();
+            
+            // Clear existing timeout
+            if (staffVerificationTimeout) {
+                clearTimeout(staffVerificationTimeout);
+            }
+            
+            // If input is cleared or too short, clear validation immediately
+            if (!staffIdValue || staffIdValue.length < 3) {
+                clearStaffValidation();
+                validateForm();
+                return;
+            }
+            
+            // If same as last verified, don't re-verify
+            if (staffIdValue === lastVerifiedStaffId && staffVerificationStatus === 'valid') {
+                return;
+            }
+            
+            // Set timeout for verification (debounce)
+            staffVerificationTimeout = setTimeout(() => {
+                verifyStaffId(staffIdValue);
+            }, 800); // Wait 800ms after user stops typing
+        }
+
+        // Get selected PPE items
+        function getSelectedPPE() {
+            const selectedItems = [];
+            
+            // Get all items with quantities > 0
+            Object.entries(ppeQuantities).forEach(([item, quantity]) => {
+                if (quantity > 0) {
+                    selectedItems.push({
+                        item: item,
+                        quantity: quantity
+                    });
+                }
+            });
+            
+            return selectedItems;
+        }
+
+        // Enhanced form validation including staff verification
+        function validateForm() {
+            const staffIdValue = safeText(staffId.value, '');
+            const workerNameValue = safeText(workerName.value, '');
+            const departmentValue = safeText(department.value, '');
+            const workLocationValue = safeText(workLocation.value, '');
+            const workReasonValue = safeText(workReason.value, '');
+            
+            const selectedPPE = getSelectedPPE();
+            
+            // Check if staff ID is required and valid
+            const staffIdValid = !staffIdValue || staffVerificationStatus === 'valid';
+            
+            const isValid = staffIdValid &&
+                           workerNameValue.length > 0 &&
+                           departmentValue !== '' &&
+                           workLocationValue.length > 0 &&
+                           workReasonValue.length > 0 &&
+                           selectedPPE.length > 0;
+            
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = !isValid;
+            
+            // Update submit button text based on staff verification
+            if (staffIdValue && staffVerificationStatus === 'invalid') {
+                submitBtn.textContent = 'Invalid Staff ID';
+                submitBtn.style.background = '#dc2626';
+            } else if (!isValid) {
+                submitBtn.textContent = 'Complete All Fields';
+                submitBtn.style.background = '#9ca3af';
+            } else {
+                submitBtn.textContent = 'Submit PPE Request';
+                submitBtn.style.background = '#000000';
+            }
+            
+            updateRequestSummary();
+        }
+
+        // Event listeners
+        staffId.addEventListener('input', handleStaffIdInput);
+        workerName.addEventListener('input', validateForm);
+        department.addEventListener('change', function() {
+            handleDepartmentSelection(this);
+            validateForm();
+        });
+        workLocation.addEventListener('input', validateForm);
+        workReason.addEventListener('input', validateForm);
+
+        // PPE event listeners are now added dynamically in addPPEEventListeners()
+
+        // Update request summary
+        function updateRequestSummary() {
+            const selectedItems = Object.entries(ppeQuantities)
+                .filter(([item, qty]) => qty > 0)
+                .map(([item, qty]) => ({ item, quantity: qty }));
+
+            if (selectedItems.length === 0) {
+                document.getElementById('requestSummary').style.display = 'none';
+                return;
+            }
+
+            const workerNameValue = safeText(workerName.value, 'Unknown Worker');
+            const staffIdValue = safeText(staffId.value, 'N/A');
+            const departmentValue = safeText(department.value, 'N/A');
+            const workLocationValue = safeText(workLocation.value, 'N/A');
+            const workReasonValue = safeText(workReason.value, 'N/A');
+            
+            const workerDisplayName = `${workerNameValue} (${staffIdValue}) - ${departmentValue}`;
+            
+            const summaryContent = document.getElementById('summaryContent');
+            summaryContent.innerHTML = `
+                <div class="request-summary-item">
+                    <span><strong>Worker:</strong></span>
+                    <span>${workerDisplayName}</span>
+                </div>
+                <div class="request-summary-item">
+                    <span><strong>Location:</strong></span>
+                    <span>${workLocationValue}</span>
+                </div>
+                <div class="request-summary-item">
+                    <span><strong>Purpose:</strong></span>
+                    <span>${workReasonValue}</span>
+                </div>
+                <div class="request-summary-item">
+                    <span><strong>Items:</strong></span>
+                    <span>${selectedItems.map(item => `${getPPEName(safeGet(item, 'item', 'Unknown'))} (${safeNumber(safeGet(item, 'quantity', 0))})`).join(', ')}</span>
+                </div>
+            `;
+            
+            document.getElementById('requestSummary').style.display = 'block';
+        }
+
+        // Get PPE name
+        function getPPEName(item) {
+            const safeItem = safeText(item, '').toLowerCase();
+            const ppeType = ppeTypes.find(type => safeGet(type, 'type', '').toLowerCase() === safeItem);
+            return ppeType ? safeGet(ppeType, 'name', safeItem) : safeItem;
+        }
+
+        // Submit PPE request
+        submitBtn.addEventListener('click', async function() {
+            const stationSelect = document.getElementById('stationSelect');
+            
+            if (!staffId.value.trim() || !workerName.value.trim() || !department.value || !workLocation.value.trim() || !workReason.value.trim()) {
+                showToast('❌ Please fill all required fields', 'error');
+                return;
+            }
+            
+            if (!stationSelect.value) {
+                showToast('❌ Please select a station to collect PPE from', 'error');
+                return;
+            }
+            
+            const selectedItems = [];
+            
+            // Get all selected PPE items
+            Object.entries(ppeQuantities).forEach(([itemKey, quantity]) => {
+                if (quantity > 0) {
+                    const ppeType = ppeTypes.find(type => type.type.toLowerCase() === itemKey);
+                    if (ppeType) {
+                        selectedItems.push({
+                            ppeItemId: ppeType.id,
+                            quantity: quantity
+                        });
+                    }
+                }
+            });
+            
+            if (selectedItems.length === 0) {
+                showToast('❌ Please select at least one PPE item', 'error');
+                return;
+            }
+            
+            submitBtn.innerHTML = '<span class="spinner"></span> Submitting...';
+            submitBtn.disabled = true;
+            
+            try {
+                const requestData = {
+                    stationId: document.getElementById('stationSelect').value,
+                    items: selectedItems,
+                    staffId: staffId.value.trim(),
+                    staffName: workerName.value.trim(),
+                    department: department.value,
+                    notes: `Location: ${workLocation.value.trim()}, Purpose: ${workReason.value.trim()}`
+                };
+                
+                console.log('=== FRONTEND PPE REQUEST DEBUG ===');
+                console.log('Sending request data:', JSON.stringify(requestData, null, 2));
+                console.log('Station ID value:', document.getElementById('stationSelect').value);
+                console.log('Station select element:', document.getElementById('stationSelect'));
+                
+                const response = await fetch('/api/ppe-requests', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success || response.ok) {
+                    showToast('✅ PPE request submitted successfully and sent for approval!', 'success');
+                    resetForm();
+                } else {
+                    showToast(`❌ ${result.error || 'Request failed'}`, 'error');
+                }
+                
+            } catch (error) {
+                showToast('⚠️ Network error - request may be queued', 'warning');
+                console.error('Submit error:', error);
+            } finally {
+                submitBtn.innerHTML = '📤 Submit PPE Request';
+                submitBtn.disabled = false;
+            }
+        });
+
+        // Reset form with loading overlay cleanup
+        function resetForm() {
+            staffId.value = '';
+            workerName.value = '';
+            department.value = '';
+            workLocation.value = '';
+            workReason.value = '';
+            
+            // Reset all PPE quantities
+            Object.keys(ppeQuantities).forEach(key => {
+                ppeQuantities[key] = 0;
+            });
+            
+            // Reset toggles and quantity displays
+            document.querySelectorAll('.toggle').forEach(toggle => toggle.classList.remove('active'));
+            document.querySelectorAll('.quantity-display').forEach(display => {
+                display.textContent = '0';
+            });
+            
+            document.getElementById('requestSummary').style.display = 'none';
+            
+            // Clear staff validation and hide loading overlay
+            clearStaffValidation();
+            hideLoadingOverlay();
+            
+            // Clear staff verification timeout if exists
+            if (staffVerificationTimeout) {
+                clearTimeout(staffVerificationTimeout);
+                staffVerificationTimeout = null;
+            }
+            
+            validateForm();
+        }
+
+        // Show toast notification
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Load available stations from API
+        async function loadStations() {
+            try {
+                console.log('Loading stations...');
+                // Add cache-busting parameter to prevent API caching
+                const cacheBust = Date.now();
+                const response = await fetch(`/api/stations?_=${cacheBust}`, {
+                    headers: {
+                        'Cache-Control': 'no-cache',
+                        'Pragma': 'no-cache'
+                    }
+                });
+                const data = await response.json();
+                console.log('Stations API response:', data);
+                
+                // Handle both API response formats: { stations: [] } or direct []
+                const stations = data.stations || data;
+                console.log('Processed stations:', stations);
+                
+                const stationSelect = document.getElementById('stationSelect');
+                stationSelect.innerHTML = '<option value="">Choose station...</option>';
+                
+                // Filter active stations only
+                const activeStations = stations.filter(station => station.active);
+                
+                if (activeStations.length === 0) {
+                    stationSelect.innerHTML = '<option value="">No active stations available</option>';
+                    stationSelect.disabled = true;
+                    showToast('⚠️ No active stations found. Please contact admin.', 'warning');
+                    return;
+                }
+                
+                // Add active stations to dropdown
+                activeStations.forEach(station => {
+                    const option = document.createElement('option');
+                    const stationId = safeGet(station, 'id', '');
+                    const stationName = safeGet(station, 'name', 'Unknown Station');
+                    const stationLocation = safeGet(station, 'location', 'Location not specified');
+                    
+                    option.value = stationId;
+                    option.textContent = `${stationName} - ${stationLocation}`;
+                    stationSelect.appendChild(option);
+                });
+                
+                // Enable station selection change event
+                stationSelect.addEventListener('change', handleStationChange);
+                
+                console.log(`✅ Loaded ${activeStations.length} active stations`);
+                
+                // Hide retry button on successful load
+                const retryBtn = document.getElementById('retryStationsBtn');
+                if (retryBtn) {
+                    retryBtn.style.display = 'none';
+                }
+                
+                // Show success indication
+                if (activeStations.length > 0) {
+                    showToast(`✅ Loaded ${activeStations.length} stations successfully`, 'success');
+                }
+                
+            } catch (error) {
+                console.error('Error loading stations:', error);
+                const stationSelect = document.getElementById('stationSelect');
+                stationSelect.innerHTML = '<option value="">Error loading stations</option>';
+                stationSelect.disabled = true;
+                
+                // Show retry button
+                const retryBtn = document.getElementById('retryStationsBtn');
+                if (retryBtn) {
+                    retryBtn.style.display = 'inline-block';
+                }
+                
+                showToast('❌ Failed to load stations. Click retry or refresh the page.', 'error');
+            }
+        }
+        
+        // Retry loading stations manually
+        async function retryLoadingStations() {
+            console.log('🔄 Manual retry: Loading stations...');
+            const retryBtn = document.getElementById('retryStationsBtn');
+            const stationSelect = document.getElementById('stationSelect');
+            
+            // Show loading state
+            if (retryBtn) {
+                retryBtn.textContent = '⏳ Loading...';
+                retryBtn.disabled = true;
+            }
+            
+            stationSelect.disabled = false;
+            stationSelect.innerHTML = '<option value="">Loading stations...</option>';
+            
+            try {
+                await loadStations();
+                
+                // Hide retry button on success
+                if (retryBtn) {
+                    retryBtn.style.display = 'none';
+                }
+                
+                showToast('✅ Stations loaded successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Retry failed:', error);
+                
+                // Reset button
+                if (retryBtn) {
+                    retryBtn.textContent = '🔄 Retry Loading Stations';
+                    retryBtn.disabled = false;
+                }
+                
+                showToast('❌ Retry failed. Please refresh the page.', 'error');
+            }
+        }
+
+        // Handle station selection change
+        async function handleStationChange() {
+            const stationSelect = document.getElementById('stationSelect');
+            const selectedStationId = stationSelect.value;
+            
+            if (selectedStationId) {
+                console.log(`Station selected: ${selectedStationId}`);
+                // Update PPE items based on selected station inventory
+                await updatePPEItemsForStation(selectedStationId);
+            } else {
+                // Clear PPE items if no station selected
+                document.getElementById('ppeItemsContainer').innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #6b7280;">
+                        Please select a station first to view available PPE items
+                    </div>
+                `;
+            }
+        }
+
+        // Update PPE items based on selected station's inventory
+        async function updatePPEItemsForStation(stationId) {
+            try {
+                // Get station inventory
+                const response = await fetch(`/api/stations/${stationId}`);
+                const stationData = await response.json();
+                
+                if (stationData.inventory && stationData.inventory.length > 0) {
+                    // Filter PPE types to only show items available at this station
+                    const availablePPE = ppeTypes.filter(type => {
+                        const inventoryItem = stationData.inventory.find(inv => inv.ppe_item_id === type.id);
+                        return inventoryItem && inventoryItem.current_stock > 0;
+                    });
+                    
+                    if (availablePPE.length > 0) {
+                        renderPPEItemsForStation(availablePPE, stationData.inventory);
+                    } else {
+                        document.getElementById('ppeItemsContainer').innerHTML = `
+                            <div style="text-align: center; padding: 20px; color: #f59e0b;">
+                                No PPE items in stock at ${stationData.name}. Please contact admin or select another station.
+                            </div>
+                        `;
+                    }
+                } else {
+                    document.getElementById('ppeItemsContainer').innerHTML = `
+                        <div style="text-align: center; padding: 20px; color: #f59e0b;">
+                            No inventory found at ${stationData.name}. Please contact admin.
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                console.error('Error loading station inventory:', error);
+                document.getElementById('ppeItemsContainer').innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #dc2626;">
+                        Error loading inventory for selected station. Please try again.
+                    </div>
+                `;
+            }
+        }
+
+        // Render PPE items with stock information for selected station
+        function renderPPEItemsForStation(availablePPE, inventory) {
+            const container = document.getElementById('ppeItemsContainer');
+            container.innerHTML = '';
+            
+            const safeInventory = safeArray(inventory, []);
+            
+            availablePPE.forEach(type => {
+                const typeId = safeGet(type, 'id', '');
+                const typeName = safeGet(type, 'name', 'Unknown PPE');
+                const typeSymbol = safeGet(type, 'symbol', safeGet(type, 'type', ''));
+                const typeKey = safeGet(type, 'type', '').toLowerCase();
+                
+                const inventoryItem = safeInventory.find(inv => safeGet(inv, 'ppe_item_id') === typeId);
+                const stock = safeNumber(safeGet(inventoryItem, 'current_stock', 0));
+                
+                const ppeItem = document.createElement('div');
+                ppeItem.className = 'ppe-item';
+                ppeItem.innerHTML = `
+                    <div class="ppe-info">
+                        <div class="ppe-name">${typeName}</div>
+                        <div class="ppe-symbol">${typeSymbol}</div>
+                        <div class="ppe-stock">Stock: ${stock} available</div>
+                    </div>
+                    <div class="ppe-controls">
+                        <button onclick="decrementQuantity('${typeKey}')" class="quantity-btn">-</button>
+                        <span class="quantity-display" id="qty-${typeKey}">0</span>
+                        <button onclick="incrementQuantity('${typeKey}', ${stock})" class="quantity-btn">+</button>
+                    </div>
+                `;
+                container.appendChild(ppeItem);
+            });
+            
+            addPPEEventListeners();
+        }
+
+        // Station-specific quantity control functions
+        function incrementQuantity(itemKey, maxStock) {
+            const currentQty = ppeQuantities[itemKey] || 0;
+            if (currentQty < maxStock) {
+                ppeQuantities[itemKey] = currentQty + 1;
+                document.getElementById(`qty-${itemKey}`).textContent = ppeQuantities[itemKey];
+                validateForm();
+            } else {
+                showToast(`❌ Cannot exceed available stock (${maxStock})`, 'error');
+            }
+        }
+
+        function decrementQuantity(itemKey) {
+            const currentQty = ppeQuantities[itemKey] || 0;
+            if (currentQty > 0) {
+                ppeQuantities[itemKey] = currentQty - 1;
+                document.getElementById(`qty-${itemKey}`).textContent = ppeQuantities[itemKey];
+                validateForm();
+            }
+        }
+
+        // Load PPE types from API (but don't render until station is selected)
+        async function loadPPEItems() {
+            await loadPPETypes();
+        }
+
+        // Load PPE types from API
+        async function loadPPETypes() {
+            try {
+                const cacheBust = Date.now();
+                const response = await fetch(`/api/ppe-types?_=${cacheBust}`, {
+                    headers: {
+                        'Cache-Control': 'no-cache',
+                        'Pragma': 'no-cache'
+                    }
+                });
+                const types = await response.json();
+                
+                ppeTypes = types;
+                
+                // Initialize quantities
+                ppeQuantities = {};
+                types.forEach(type => {
+                    ppeQuantities[type.type.toLowerCase()] = 0;
+                });
+                
+                // Don't render items until station is selected
+                document.getElementById('ppeItemsContainer').innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #6b7280;">
+                        Please select a station first to view available PPE items
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('Error loading PPE types:', error);
+                document.getElementById('ppeItemsContainer').innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #dc2626;">
+                        Error loading PPE items. Please refresh the page.
+                    </div>
+                `;
+            }
+        }
+
+        // Render PPE items dynamically
+        function renderPPEItems() {
+            const container = document.getElementById('ppeItemsContainer');
+            
+            if (ppeTypes.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #6b7280;">
+                        No PPE items available
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            ppeTypes.forEach(type => {
+                const itemId = safeGet(type, 'type', '').toLowerCase();
+                const typeSymbol = safeGet(type, 'symbol', '');
+                const typeName = safeGet(type, 'name', 'Unknown PPE');
+                
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'ppe-item';
+                
+                // All PPE items now use quantity controls
+                itemDiv.innerHTML = `
+                    <span>${typeSymbol} ${typeName}</span>
+                    <div class="quantity-control">
+                        <button class="quantity-btn minus" data-item="${itemId}">−</button>
+                        <span class="quantity-display" id="${itemId}Quantity">0</span>
+                        <button class="quantity-btn plus" data-item="${itemId}">+</button>
+                    </div>
+                `;
+                
+                container.appendChild(itemDiv);
+            });
+            
+            // Add event listeners for new elements
+            addPPEEventListeners();
+        }
+
+        // Add event listeners for PPE items
+        function addPPEEventListeners() {
+            // All PPE items now use quantity controls - no toggles needed
+
+            // Quantity controls
+            document.querySelectorAll('.quantity-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const item = this.dataset.item;
+                    
+                    // Check if this is from the station-based rendering (onclick functions)
+                    if (!item && this.onclick) {
+                        // This is handled by inline onclick functions, skip
+                        return;
+                    }
+                    
+                    // Only proceed if we have a valid item identifier
+                    if (!item) {
+                        console.error('No item identifier found on button:', this);
+                        return;
+                    }
+                    
+                    const isPlus = this.classList.contains('plus');
+                    const currentQty = ppeQuantities[item] || 0;
+                    
+                    if (isPlus && currentQty < 10) {
+                        ppeQuantities[item] = currentQty + 1;
+                    } else if (!isPlus && currentQty > 0) {
+                        ppeQuantities[item] = currentQty - 1;
+                    }
+                    
+                    const quantityElement = document.getElementById(`${item}Quantity`);
+                    if (quantityElement) {
+                        quantityElement.textContent = ppeQuantities[item];
+                    } else {
+                        console.error('Quantity element not found for item:', item);
+                    }
+                    validateForm();
+                });
+            });
+        }
+
+        // Initialize
+        loadPPETypes();
+    </script>
+</body>
+</html>

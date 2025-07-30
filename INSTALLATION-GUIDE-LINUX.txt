@@ -1,0 +1,140 @@
+===============================================================================
+                    PPE MANAGEMENT SYSTEM - LINUX INSTALLATION
+===============================================================================
+
+QUICK START (4 STEPS):
+
+1. Install Node.js (if not installed)
+2. Open Terminal
+3. Run installation commands below
+4. Open browser: http://localhost:3000
+
+===============================================================================
+                              INSTALLATION COMMANDS
+===============================================================================
+
+STEP 1: INSTALL NODE.JS (IF NEEDED)
+
+Ubuntu/Debian:
+sudo apt update
+sudo apt install nodejs npm
+
+CentOS/RHEL:
+sudo yum install nodejs npm
+
+Fedora:
+sudo dnf install nodejs npm
+
+Or download from: https://nodejs.org
+
+STEP 2: OPEN TERMINAL
+Ctrl + Alt + T
+
+STEP 3: NAVIGATE TO PPE MANAGEMENT FOLDER
+cd /path/to/PPE\ Management
+(Replace with your actual folder path - note the backslash for space)
+
+STEP 4: INSTALL DEPENDENCIES
+cd backend
+npm install --omit=dev
+cd ..
+npm install --omit=dev
+
+STEP 5: CONFIGURE FIREWALL (OPTIONAL - ONLY IF NEEDED FOR NETWORK ACCESS)
+
+Ubuntu/Debian (UFW):
+sudo ufw allow 3000/tcp
+sudo ufw reload
+
+CentOS/RHEL/Fedora (firewalld):
+sudo firewall-cmd --permanent --add-port=3000/tcp
+sudo firewall-cmd --reload
+
+Alternative (iptables):
+sudo iptables -A INPUT -p tcp --dport 3000 -j ACCEPT
+sudo service iptables save
+
+STEP 6: START THE SYSTEM
+cd backend
+node server.js
+
+STEP 7: OPEN WEB BROWSER
+Go to: http://localhost:3000
+
+===============================================================================
+                              FIRST TIME SETUP
+===============================================================================
+
+1. Follow the setup wizard to create your admin account
+2. Go to Admin Panel → License Management  
+3. Upload your .lic license file or paste license key
+4. System is now ready for use!
+
+===============================================================================
+                              NETWORK ACCESS
+===============================================================================
+
+- Employees can access from any computer on your network
+- Server will display the network URL when it starts
+- Example: http://192.168.1.100:3000
+- Share this URL with your employees
+
+===============================================================================
+                              RUNNING AS SERVICE (OPTIONAL)
+===============================================================================
+
+To run PPE Management as a system service:
+
+1. CREATE SERVICE FILE:
+sudo nano /etc/systemd/system/ppe-management.service
+
+2. ADD CONTENT:
+[Unit]
+Description=PPE Management System
+After=network.target
+
+[Service]
+Type=simple
+User=your-username
+WorkingDirectory=/path/to/PPE Management/backend
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+
+3. ENABLE AND START:
+sudo systemctl daemon-reload
+sudo systemctl enable ppe-management
+sudo systemctl start ppe-management
+
+4. CHECK STATUS:
+sudo systemctl status ppe-management
+
+===============================================================================
+                              TROUBLESHOOTING
+===============================================================================
+
+COMMON ISSUES:
+- "node not found" → Install Node.js using package manager
+- "npm not found" → Install npm package
+- "Permission denied" → Use sudo for system commands
+- "Port already in use" → Check if another service uses port 3000
+
+CHECK NODE.JS VERSION:
+node --version
+npm --version
+
+STOP THE SERVICE:
+sudo systemctl stop ppe-management
+
+VIEW LOGS:
+sudo journalctl -u ppe-management -f
+
+SUPPORT:
+- Installation issues: Check Node.js installation
+- License questions: Contact your license provider
+- Network setup: Contact your system administrator
+
+===============================================================================

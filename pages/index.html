@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PPE Management System</title>
+    <link rel="manifest" href="/frontend/manifest.json">
+    <meta name="theme-color" content="#000000">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    
+    <!-- Cache control -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+            border: 1px solid #e9ecef;
+        }
+
+        .logo {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #000000;
+            font-size: 28px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .subtitle {
+            color: #6c757d;
+            font-size: 16px;
+            margin-bottom: 40px;
+        }
+
+        .role-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .role-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            text-decoration: none;
+            color: #000000;
+            font-weight: 500;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .role-button:hover {
+            background: #000000;
+            color: white;
+            border-color: #000000;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(10px);
+        }
+
+        .role-button .icon {
+            font-size: 24px;
+            margin-right: 12px;
+        }
+
+        .role-button .details {
+            text-align: left;
+        }
+
+        .role-button .title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .role-button .description {
+            font-size: 14px;
+            color: #6c757d;
+        }
+
+        .role-button:hover .description {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .footer {
+            margin-top: 40px;
+            color: #6c757d;
+            font-size: 14px;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 30px 20px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+            
+            .role-button {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🛡️</div>
+        <h1>PPE Management System</h1>
+        <p class="subtitle">Choose your interface to get started</p>
+        
+        <div class="role-buttons">
+            <a href="admin.html" class="role-button">
+                <div class="icon">🏢</div>
+                <div class="details">
+                    <div class="title">Admin Dashboard</div>
+                    <div class="description">Manage inventory, approvals, and system settings</div>
+                </div>
+            </a>
+            
+            <a href="worker.html" class="role-button">
+                <div class="icon">👷</div>
+                <div class="details">
+                    <div class="title">Worker Interface</div>
+                    <div class="description">Request PPE equipment and check status</div>
+                </div>
+            </a>
+            
+            <a href="worker-mobile.html" class="role-button">
+                <div class="icon">📱</div>
+                <div class="details">
+                    <div class="title">Mobile Interface</div>
+                    <div class="description">Optimized for smartphones and tablets</div>
+                </div>
+            </a>
+        </div>
+        
+        <div class="footer">
+            <p>PPE Management System v1.0 | MetroD</p>
+        </div>
+    </div>
+
+    <script>
+        // Add some interactive effects
+        document.querySelectorAll('.role-button').forEach(button => {
+            button.addEventListener('click', function(e) {
+                // Add loading state
+                this.style.opacity = '0.7';
+                this.style.transform = 'scale(0.98)';
+                
+                // Reset after a moment
+                setTimeout(() => {
+                    this.style.opacity = '';
+                    this.style.transform = '';
+                }, 200);
+            });
+        });
+    </script>
+</body>
+</html>

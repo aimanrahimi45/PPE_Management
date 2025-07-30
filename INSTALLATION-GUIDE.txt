@@ -1,0 +1,80 @@
+===============================================================================
+                    PPE MANAGEMENT SYSTEM - WINDOWS INSTALLATION
+===============================================================================
+
+QUICK START (4 STEPS):
+
+1. Install Node.js from nodejs.org (if not installed)
+2. Open PowerShell as Administrator
+3. Run installation commands below
+4. Open browser: http://localhost:3000
+
+===============================================================================
+                              INSTALLATION COMMANDS
+===============================================================================
+
+STEP 1: OPEN POWERSHELL AS ADMINISTRATOR
+- Press Windows key + X
+- Click "Windows PowerShell (Admin)"
+
+STEP 2: NAVIGATE TO PPE MANAGEMENT FOLDER
+cd "C:\path\to\PPE Management"
+(Replace with your actual folder path)
+
+STEP 3: INSTALL DEPENDENCIES
+cd backend
+npm install --omit=dev
+cd ..
+npm install --omit=dev
+
+STEP 4: CONFIGURE FIREWALL (OPTIONAL - ONLY IF NEEDED)
+NOTE: Only run this if you need employees to access from other computers
+      Requires PowerShell as Administrator (Right-click PowerShell → "Run as Administrator")
+
+New-NetFirewallRule -DisplayName "PPE Management" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow
+
+If you get "Access denied" error, either:
+- Restart PowerShell as Administrator, OR
+- Skip this step (system works locally without it)
+
+STEP 5: START THE SYSTEM
+cd backend
+node server.js
+
+STEP 6: OPEN WEB BROWSER
+Go to: http://localhost:3000
+
+===============================================================================
+                              FIRST TIME SETUP
+===============================================================================
+
+1. Follow the setup wizard to create your admin account
+2. Go to Admin Panel → License Management  
+3. Upload your .lic license file or paste license key
+4. System is now ready for use!
+
+===============================================================================
+                              NETWORK ACCESS
+===============================================================================
+
+- Employees can access from any computer on your network
+- Server will display the network URL when it starts
+- Example: http://192.168.1.100:3000
+- Share this URL with your employees
+
+===============================================================================
+                              TROUBLESHOOTING
+===============================================================================
+
+COMMON ISSUES:
+- "node not found" → Install Node.js from nodejs.org
+- "npm not found" → Restart PowerShell after Node.js installation
+- "Access denied" → Make sure PowerShell is running as Administrator
+- Server won't start → Check if port 3000 is already in use
+
+SUPPORT:
+- Installation issues: Check Node.js version (node --version)
+- License questions: Contact your license provider
+- Network setup: Contact your IT administrator
+
+===============================================================================

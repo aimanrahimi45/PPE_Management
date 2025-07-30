@@ -1,0 +1,260 @@
+PPE MANAGEMENT SYSTEM - SYSTEM REQUIREMENTS
+===============================================
+
+MINIMUM REQUIREMENTS
+--------------------
+Operating System:
+  - Windows 10 (Version 1903 or later)
+  - Windows 11 (All versions)
+  - Windows Server 2016 or later
+
+Hardware:
+  - RAM: 4 GB minimum (8 GB recommended)
+  - CPU: 2 GHz dual-core processor
+  - Storage: 2 GB free disk space (5 GB recommended)
+  - Network: Ethernet/WiFi for browser access
+
+Software Dependencies:
+  - Node.js: v16.0+ (automatically installed)
+  - Web Browser: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
+
+RECOMMENDED SPECIFICATIONS
+-------------------------
+Hardware:
+  - RAM: 8 GB or more
+  - CPU: 3 GHz quad-core processor
+  - Storage: 10 GB free space (SSD preferred)
+  - Network: Gigabit Ethernet for optimal performance
+
+Software:
+  - Windows 10 Professional or Enterprise
+  - Google Chrome (latest version)
+  - Antivirus with real-time protection
+
+NETWORK REQUIREMENTS
+-------------------
+Ports:
+  - TCP 3000: Main application port (must be available)
+  - TCP 80/443: Optional (for reverse proxy setup)
+  - TCP 25/587/465: Email notifications (outbound only)
+
+Firewall:
+  - Inbound: Allow TCP 3000 from local network
+  - Outbound: Allow HTTP/HTTPS for updates and email
+
+Internet Connection:
+  - Required: Initial installation and updates
+  - Optional: Runtime operation (can run offline)
+
+MULTI-USER REQUIREMENTS
+-----------------------
+Single User (1-5 staff):
+  - Minimum specifications sufficient
+  - SQLite database adequate
+
+Small Team (6-25 staff):
+  - Recommended specifications
+  - Regular database maintenance
+
+Large Organization (26+ staff):
+  - High-end specifications
+  - Consider dedicated server
+  - Professional support recommended
+
+MOBILE ACCESS REQUIREMENTS
+--------------------------
+Mobile Devices:
+  - iOS 12+ (Safari 12+)
+  - Android 8+ (Chrome 80+)
+  - Windows Mobile (Edge 90+)
+
+Network:
+  - WiFi connection to same network as server
+  - Mobile data (if server accessible via internet)
+
+Features:
+  - Camera access for condition reports
+  - Local storage for offline functionality
+
+SECURITY REQUIREMENTS
+---------------------
+User Access:
+  - Individual user accounts required
+  - Admin password complexity: 8+ characters
+  - Regular password updates recommended
+
+System Security:
+  - Windows Defender or equivalent antivirus
+  - Windows Firewall enabled
+  - Regular Windows updates
+  - License file security (backup and protect)
+
+Data Protection:
+  - Regular database backups
+  - Secure storage of backups
+  - User data encryption (built-in)
+
+BACKUP REQUIREMENTS
+-------------------
+Automatic Backups:
+  - Daily database backups (built-in)
+  - 30-day retention period
+  - Backup size: ~10-100 MB (depends on usage)
+
+Manual Backups:
+  - Weekly full system backup recommended
+  - Store backups on separate drive/cloud
+  - Test backup restoration quarterly
+
+Storage:
+  - Local: 1 GB for 30 days of backups
+  - External: USB drive or network storage
+  - Cloud: OneDrive, Google Drive, Dropbox
+
+PERFORMANCE EXPECTATIONS
+------------------------
+Response Times:
+  - Page loads: < 3 seconds
+  - API requests: < 1 second
+  - File uploads: < 30 seconds (photos)
+  - Reports: < 60 seconds (large reports)
+
+Concurrent Users:
+  - 1-10 users: Excellent performance
+  - 11-25 users: Good performance
+  - 26-50 users: Adequate (may need optimization)
+  - 50+ users: Contact support for scaling
+
+Uptime:
+  - Expected: 99%+ uptime
+  - Planned maintenance: Monthly (1-2 hours)
+  - Unplanned downtime: Rare
+
+OPTIONAL FEATURES
+-----------------
+Email Notifications:
+  - SMTP server access required
+  - Common providers: Gmail, Outlook, Exchange
+  - Ports: 587 (TLS) or 465 (SSL)
+
+QR Code Scanning:
+  - Mobile devices with camera
+  - QR code scanner app (many free options)
+  - Good lighting for scanning
+
+Report Generation:
+  - PDF reports: Built-in (no additional software)
+  - Excel exports: Built-in (no additional software)
+  - Email reports: Requires email configuration
+
+TROUBLESHOOTING RESOURCES
+-------------------------
+Minimum Tools:
+  - Windows Event Viewer
+  - Task Manager
+  - Network diagnostic tools (built-in)
+
+Recommended Tools:
+  - Process Monitor (Microsoft)
+  - Network scanner
+  - Disk cleanup utilities
+
+Log Files:
+  - Location: data\logs\ folder
+  - Types: error.log, access.log, system.log
+  - Retention: 30 days automatic
+
+SUPPORT REQUIREMENTS
+-------------------
+Self-Service:
+  - README-CUSTOMER.md (installation guide)
+  - TROUBLESHOOTING.md (problem resolution)
+  - Built-in help system
+
+Technical Support:
+  - Remote assistance capability
+  - Log file access for diagnostics
+  - System information collection tools
+
+Training:
+  - Admin training: 2-4 hours
+  - Staff training: 30-60 minutes
+  - Video tutorials included
+
+COMPATIBILITY NOTES
+-------------------
+Known Conflicts:
+  - Skype (uses port 3000) - disable or change port
+  - Some development tools - may conflict with Node.js
+  - Corporate antivirus - may block localhost access
+
+Antivirus Compatibility:
+  - Windows Defender: Fully compatible
+  - Norton/McAfee: May need exclusions
+  - Corporate AV: Contact IT for configuration
+
+Virtual Machines:
+  - VMware: Supported (allocate 6GB+ RAM)
+  - VirtualBox: Supported (enable virtualization)
+  - Hyper-V: Supported (Windows Pro/Enterprise)
+
+INSTALLATION NOTES
+------------------
+Installation Time:
+  - Automatic: 10-20 minutes
+  - Manual: 30-60 minutes
+  - First-time setup: 5-10 minutes
+
+Administrative Access:
+  - Required for installation
+  - Required for some operations
+  - Can run as standard user after setup
+
+Internet Access:
+  - Required for initial installation
+  - Downloads ~100-200 MB of dependencies
+  - Subsequent runs work offline
+
+LICENSE REQUIREMENTS
+-------------------
+License File:
+  - Format: .lic file
+  - Size: 1-50 KB
+  - Location: backend\uploads\licenses\
+  - Quantity: One active license only
+
+License Features:
+  - User limits: Defined per license
+  - Feature access: Module-specific
+  - Duration: Check expiration date
+  - Updates: May require license renewal
+
+Backup License:
+  - Keep secure backup copy
+  - Store separately from system
+  - Contact vendor if lost/corrupted
+
+MIGRATION REQUIREMENTS
+----------------------
+From Previous Version:
+  - Export data using admin tools
+  - Install new version
+  - Import data during setup
+  - Verify all data transferred
+
+From Other Systems:
+  - CSV export/import available
+  - Staff data: Manual entry or CSV
+  - PPE inventory: CSV import
+  - Historical data: Limited import
+
+To New Server:
+  - Copy entire system folder
+  - Include license files
+  - Update network settings
+  - Test all functionality
+
+===============================================
+For technical support and additional requirements:
+Contact: [Your Support Information]
+Last Updated: PPE Management System v1.0

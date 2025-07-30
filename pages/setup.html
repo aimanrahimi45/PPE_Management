@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PPE Management System - Initial Setup</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #2d3748;
+        }
+        .setup-container {
+            background: white;
+            padding: 3rem;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            width: 100%;
+            max-width: 600px;
+            margin: 2rem;
+        }
+        .setup-header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+        .setup-header h1 {
+            color: #2d3748;
+            font-size: 2.2rem;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+        .setup-header p {
+            color: #718096;
+            font-size: 1.1rem;
+            line-height: 1.5;
+        }
+        .setup-steps {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 2rem;
+            gap: 1rem;
+        }
+        .step {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.875rem;
+            transition: all 0.3s;
+        }
+        .step.active {
+            background: #000000;
+            color: white;
+        }
+        .step.completed {
+            background: #48bb78;
+            color: white;
+        }
+        .form-section {
+            display: none;
+        }
+        .form-section.active {
+            display: block;
+        }
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        .form-group label {
+            display: block;
+            color: #2d3748;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            font-size: 0.95rem;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.875rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.2s;
+            background: white;
+        }
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #000000;
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        .setup-btn {
+            width: 100%;
+            background: #000000;
+            color: white;
+            border: none;
+            padding: 1rem;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 1rem;
+        }
+        .setup-btn:hover:not(:disabled) {
+            background: #1a1a1a;
+            transform: translateY(-1px);
+        }
+        .setup-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #2d3748;
+            margin-right: 1rem;
+        }
+        .btn-secondary:hover:not(:disabled) {
+            background: #cbd5e0;
+        }
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        .btn-group button {
+            flex: 1;
+        }
+        .password-requirements {
+            font-size: 0.875rem;
+            margin-top: 0.75rem;
+            padding: 1rem;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        .password-requirements h4 {
+            color: #2d3748;
+            margin-bottom: 0.75rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .requirement-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            transition: all 0.3s ease;
+            padding: 0.25rem 0;
+        }
+        .requirement-icon {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            margin-right: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            border: 2px solid #cbd5e0;
+            color: #a0aec0;
+        }
+        .requirement-icon.valid {
+            background: #48bb78;
+            border-color: #48bb78;
+            color: white;
+        }
+        .requirement-text {
+            color: #718096;
+            transition: color 0.3s ease;
+        }
+        .requirement-item.valid .requirement-text {
+            color: #2d3748;
+            font-weight: 500;
+        }
+        .password-strength {
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid #e2e8f0;
+        }
+        .strength-bar {
+            height: 4px;
+            background: #e2e8f0;
+            border-radius: 2px;
+            overflow: hidden;
+            margin: 0.5rem 0;
+        }
+        .strength-fill {
+            height: 100%;
+            transition: all 0.3s ease;
+            border-radius: 2px;
+        }
+        .strength-weak { background: #f56565; width: 25%; }
+        .strength-fair { background: #ed8936; width: 50%; }
+        .strength-good { background: #38b2ac; width: 75%; }
+        .strength-strong { background: #48bb78; width: 100%; }
+        .strength-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-align: center;
+        }
+        .error-message {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            border-left: 4px solid #c53030;
+        }
+        .success-message {
+            background: #c6f6d5;
+            color: #22543d;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            border-left: 4px solid #22543d;
+        }
+        .warning-message {
+            background: #fef5e7;
+            color: #c05621;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            border-left: 4px solid #c05621;
+        }
+        .recovery-key-display {
+            background: #000000;
+            color: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            text-align: center;
+            margin: 1rem 0;
+            font-family: 'Courier New', monospace;
+            font-size: 1.2rem;
+            font-weight: bold;
+            letter-spacing: 0.1em;
+            word-break: break-all;
+            line-height: 1.6;
+        }
+        .recovery-instructions {
+            background: #fff5f5;
+            border: 2px solid #feb2b2;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+        }
+        .recovery-instructions h3 {
+            color: #c53030;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+        .recovery-instructions ul {
+            color: #2d3748;
+            margin-left: 1.5rem;
+            line-height: 1.6;
+        }
+        .recovery-instructions li {
+            margin-bottom: 0.5rem;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+            padding: 1rem;
+            background: #f7fafc;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            margin-top: 0.25rem;
+        }
+        .checkbox-group label {
+            margin: 0;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            font-weight: 500;
+        }
+        @media (max-width: 768px) {
+            .setup-container {
+                margin: 1rem;
+                padding: 2rem;
+            }
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            .btn-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-container">
+        <div class="setup-header">
+            <h1>🛡️ PPE Management System</h1>
+            <p>Welcome! Let's set up your system with a secure administrator account.</p>
+        </div>
+
+        <div class="setup-steps">
+            <div class="step active" id="step-1">1</div>
+            <div class="step" id="step-2">2</div>
+            <div class="step" id="step-3">3</div>
+        </div>
+        
+        <div id="error-message" class="error-message" style="display: none;"></div>
+        <div id="success-message" class="success-message" style="display: none;"></div>
+        <div id="warning-message" class="warning-message" style="display: none;"></div>
+        
+        <!-- Step 1: Basic Information -->
+        <div class="form-section active" id="section-1">
+            <h2 style="margin-bottom: 1.5rem; color: #2d3748;">Step 1: Company & Admin Information</h2>
+            
+            <div class="form-group">
+                <label for="companyName">Company Name</label>
+                <input type="text" id="companyName" placeholder="Your Company Name">
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="adminName">Administrator Name *</label>
+                    <input type="text" id="adminName" required placeholder="John Smith">
+                </div>
+                <div class="form-group">
+                    <label for="adminEmail">Administrator Email *</label>
+                    <input type="email" id="adminEmail" required placeholder="admin@yourcompany.com">
+                </div>
+            </div>
+            
+            <div class="btn-group">
+                <button type="button" class="setup-btn" onclick="nextStep(1)">
+                    Next: Security Setup →
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 2: Security Configuration -->
+        <div class="form-section" id="section-2">
+            <h2 style="margin-bottom: 1.5rem; color: #2d3748;">Step 2: Security Configuration</h2>
+            
+            <div class="form-group">
+                <label for="adminPassword">Administrator Password *</label>
+                <input type="password" id="adminPassword" required placeholder="Enter secure password" oninput="validatePassword()">
+                <div class="password-requirements">
+                    <h4>Password Requirements</h4>
+                    <div class="requirement-item" id="req-length">
+                        <div class="requirement-icon">✗</div>
+                        <div class="requirement-text">Minimum 8 characters</div>
+                    </div>
+                    <div class="requirement-item" id="req-case">
+                        <div class="requirement-icon">✗</div>
+                        <div class="requirement-text">Include uppercase and lowercase letters</div>
+                    </div>
+                    <div class="requirement-item" id="req-number">
+                        <div class="requirement-icon">✗</div>
+                        <div class="requirement-text">Include numbers</div>
+                    </div>
+                    <div class="requirement-item" id="req-special">
+                        <div class="requirement-icon">✗</div>
+                        <div class="requirement-text">Include special characters (!@#$%^&*)</div>
+                    </div>
+                    <div class="password-strength">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <span style="font-size: 0.8rem; color: #718096;">Password Strength:</span>
+                            <span id="strength-text" class="strength-label" style="color: #a0aec0;">Enter password</span>
+                        </div>
+                        <div class="strength-bar">
+                            <div id="strength-fill" class="strength-fill"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="confirmPassword">Confirm Password *</label>
+                <input type="password" id="confirmPassword" required placeholder="Confirm password">
+            </div>
+
+            <div class="form-group">
+                <label for="securityQuestion">Security Question (Optional but Recommended)</label>
+                <select id="securityQuestion">
+                    <option value="">Choose a security question...</option>
+                    <option value="What was the name of your first pet?">What was the name of your first pet?</option>
+                    <option value="What is your mother's maiden name?">What is your mother's maiden name?</option>
+                    <option value="What city were you born in?">What city were you born in?</option>
+                    <option value="What was the name of your elementary school?">What was the name of your elementary school?</option>
+                    <option value="What is your favorite movie?">What is your favorite movie?</option>
+                    <option value="What was your first car model?">What was your first car model?</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="security-answer-group" style="display: none;">
+                <label for="securityAnswer">Security Answer</label>
+                <input type="text" id="securityAnswer" placeholder="Enter your answer">
+                <div style="font-size: 0.875rem; color: #718096; margin-top: 0.25rem;">
+                    This will help you reset your password if you forget it.
+                </div>
+            </div>
+
+            <!-- Business Timezone Configuration -->
+            <div class="form-group">
+                <label for="businessTimezone">Business Timezone *</label>
+                <div style="font-size: 0.875rem; color: #718096; margin-bottom: 0.5rem;" id="timezone-detection">
+                    🌍 Detecting your timezone...
+                </div>
+                <select id="businessTimezone" required>
+                    <option value="">Select your business timezone...</option>
+                    <!-- Asia Pacific -->
+                    <optgroup label="🌏 Asia Pacific">
+                        <option value="Asia/Kuala_Lumpur">Malaysia - Kuala Lumpur (UTC+8)</option>
+                        <option value="Asia/Singapore">Singapore (UTC+8)</option>
+                        <option value="Asia/Jakarta">Indonesia - Jakarta (UTC+7)</option>
+                        <option value="Asia/Bangkok">Thailand - Bangkok (UTC+7)</option>
+                        <option value="Asia/Manila">Philippines - Manila (UTC+8)</option>
+                        <option value="Asia/Tokyo">Japan - Tokyo (UTC+9)</option>
+                        <option value="Asia/Seoul">South Korea - Seoul (UTC+9)</option>
+                        <option value="Asia/Hong_Kong">Hong Kong (UTC+8)</option>
+                        <option value="Asia/Taipei">Taiwan - Taipei (UTC+8)</option>
+                        <option value="Australia/Sydney">Australia - Sydney (UTC+10/+11)</option>
+                    </optgroup>
+                    <!-- Europe -->
+                    <optgroup label="🌍 Europe">
+                        <option value="Europe/London">United Kingdom - London (UTC+0/+1)</option>
+                        <option value="Europe/Paris">France - Paris (UTC+1/+2)</option>
+                        <option value="Europe/Berlin">Germany - Berlin (UTC+1/+2)</option>
+                        <option value="Europe/Rome">Italy - Rome (UTC+1/+2)</option>
+                        <option value="Europe/Amsterdam">Netherlands - Amsterdam (UTC+1/+2)</option>
+                    </optgroup>
+                    <!-- Americas -->
+                    <optgroup label="🌎 Americas">
+                        <option value="America/New_York">US - Eastern Time (UTC-5/-4)</option>
+                        <option value="America/Chicago">US - Central Time (UTC-6/-5)</option>
+                        <option value="America/Denver">US - Mountain Time (UTC-7/-6)</option>
+                        <option value="America/Los_Angeles">US - Pacific Time (UTC-8/-7)</option>
+                        <option value="America/Toronto">Canada - Toronto (UTC-5/-4)</option>
+                        <option value="America/Mexico_City">Mexico - Mexico City (UTC-6/-5)</option>
+                    </optgroup>
+                    <!-- Middle East & Africa -->
+                    <optgroup label="🌍 Middle East & Africa">
+                        <option value="Asia/Dubai">UAE - Dubai (UTC+4)</option>
+                        <option value="Asia/Riyadh">Saudi Arabia - Riyadh (UTC+3)</option>
+                        <option value="Africa/Cairo">Egypt - Cairo (UTC+2/+3)</option>
+                        <option value="Africa/Johannesburg">South Africa - Johannesburg (UTC+2)</option>
+                    </optgroup>
+                </select>
+                <div style="font-size: 0.875rem; color: #718096; margin-top: 0.25rem;">
+                    This timezone will be used for license validation and system operations.
+                </div>
+            </div>
+            
+            <div class="btn-group">
+                <button type="button" class="setup-btn btn-secondary" onclick="previousStep(2)">
+                    ← Back
+                </button>
+                <button type="button" class="setup-btn" onclick="nextStep(2)">
+                    Complete Setup →
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 3: Setup Complete -->
+        <div class="form-section" id="section-3">
+            <h2 style="margin-bottom: 1.5rem; color: #2d3748;">Setup Complete!</h2>
+            
+            <div class="success-message">
+                ✅ Your PPE Management System has been set up successfully!
+            </div>
+
+            <div class="recovery-instructions">
+                <h3>🔑 Important: Save Your Recovery Key</h3>
+                <p style="margin-bottom: 1rem;">Your unique recovery key is displayed below. This key can be used to reset your password if you forget it.</p>
+                
+                <div class="recovery-key-display" id="recovery-key-display">
+                    <!-- Recovery key will be inserted here -->
+                </div>
+                
+                <ul>
+                    <li><strong>Write this key down</strong> and store it in a secure location</li>
+                    <li>This key can only be used <strong>once</strong> for password recovery</li>
+                    <li>Keep it separate from your computer and password</li>
+                    <li>Do not share this key with anyone</li>
+                </ul>
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="recovery-key-saved" required>
+                <label for="recovery-key-saved">
+                    I have securely saved my recovery key and understand that I will need it if I forget my password. I also understand that this key can only be used once.
+                </label>
+            </div>
+            
+            <div class="btn-group">
+                <button type="button" class="setup-btn" id="complete-btn" disabled onclick="completeSetup()">
+                    Continue to Admin Dashboard
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 1;
+        let setupData = {};
+
+        // Real-time password validation
+        function validatePassword() {
+            const password = document.getElementById('adminPassword').value;
+            
+            // Check each requirement
+            const requirements = {
+                length: password.length >= 8,
+                case: /[a-z]/.test(password) && /[A-Z]/.test(password),
+                number: /\d/.test(password),
+                special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+            };
+            
+            // Update requirement indicators
+            updateRequirement('req-length', requirements.length);
+            updateRequirement('req-case', requirements.case);
+            updateRequirement('req-number', requirements.number);
+            updateRequirement('req-special', requirements.special);
+            
+            // Calculate password strength
+            const score = Object.values(requirements).filter(Boolean).length;
+            updatePasswordStrength(score, password.length);
+            
+            return requirements;
+        }
+        
+        function updateRequirement(id, isValid) {
+            const element = document.getElementById(id);
+            const icon = element.querySelector('.requirement-icon');
+            
+            if (isValid) {
+                element.classList.add('valid');
+                icon.textContent = '✓';
+                icon.classList.add('valid');
+            } else {
+                element.classList.remove('valid');
+                icon.textContent = '✗';
+                icon.classList.remove('valid');
+            }
+        }
+        
+        function updatePasswordStrength(score, length) {
+            const strengthFill = document.getElementById('strength-fill');
+            const strengthText = document.getElementById('strength-text');
+            
+            // Remove all strength classes
+            strengthFill.className = 'strength-fill';
+            
+            if (length === 0) {
+                strengthText.textContent = 'Enter password';
+                strengthText.style.color = '#a0aec0';
+                return;
+            }
+            
+            if (score <= 1) {
+                strengthFill.classList.add('strength-weak');
+                strengthText.textContent = 'Weak';
+                strengthText.style.color = '#f56565';
+            } else if (score === 2) {
+                strengthFill.classList.add('strength-fair');
+                strengthText.textContent = 'Fair';
+                strengthText.style.color = '#ed8936';
+            } else if (score === 3) {
+                strengthFill.classList.add('strength-good');
+                strengthText.textContent = 'Good';
+                strengthText.style.color = '#38b2ac';
+            } else if (score === 4) {
+                strengthFill.classList.add('strength-strong');
+                strengthText.textContent = 'Strong';
+                strengthText.style.color = '#48bb78';
+            }
+        }
+
+        // Show/hide security answer field based on question selection
+        document.getElementById('securityQuestion').addEventListener('change', function() {
+            const answerGroup = document.getElementById('security-answer-group');
+            const securityAnswer = document.getElementById('securityAnswer');
+            
+            if (this.value) {
+                answerGroup.style.display = 'block';
+                securityAnswer.required = true;
+            } else {
+                answerGroup.style.display = 'none';
+                securityAnswer.required = false;
+                securityAnswer.value = '';
+            }
+        });
+
+        // Enable complete button when recovery key checkbox is checked
+        document.getElementById('recovery-key-saved').addEventListener('change', function() {
+            document.getElementById('complete-btn').disabled = !this.checked;
+        });
+
+        function showMessage(message, type = 'error') {
+            hideAllMessages();
+            const messageDiv = document.getElementById(`${type}-message`);
+            messageDiv.textContent = message;
+            messageDiv.style.display = 'block';
+            messageDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function hideAllMessages() {
+            document.getElementById('error-message').style.display = 'none';
+            document.getElementById('success-message').style.display = 'none';
+            document.getElementById('warning-message').style.display = 'none';
+        }
+
+        function updateSteps(step) {
+            for (let i = 1; i <= 3; i++) {
+                const stepEl = document.getElementById(`step-${i}`);
+                stepEl.classList.remove('active', 'completed');
+                
+                if (i < step) {
+                    stepEl.classList.add('completed');
+                } else if (i === step) {
+                    stepEl.classList.add('active');
+                }
+            }
+        }
+
+        function showSection(step) {
+            document.querySelectorAll('.form-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            document.getElementById(`section-${step}`).classList.add('active');
+            updateSteps(step);
+        }
+
+        function validateStep1() {
+            const adminName = document.getElementById('adminName').value.trim();
+            const adminEmail = document.getElementById('adminEmail').value.trim();
+
+            if (!adminName) {
+                showMessage('Administrator name is required');
+                return false;
+            }
+
+            if (!adminEmail) {
+                showMessage('Administrator email is required');
+                return false;
+            }
+
+            if (!adminEmail.includes('@')) {
+                showMessage('Please enter a valid email address');
+                return false;
+            }
+
+            return true;
+        }
+
+        function validateStep2() {
+            const password = document.getElementById('adminPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const securityQuestion = document.getElementById('securityQuestion').value;
+            const securityAnswer = document.getElementById('securityAnswer').value.trim();
+
+            if (!password) {
+                showMessage('Password is required');
+                return false;
+            }
+
+            // Use the real-time validation results
+            const requirements = validatePassword();
+            
+            // Check if all requirements are met
+            const allRequirementsMet = Object.values(requirements).every(Boolean);
+            if (!allRequirementsMet) {
+                showMessage('Please ensure your password meets all the requirements shown above');
+                return false;
+            }
+
+            if (password !== confirmPassword) {
+                showMessage('Passwords do not match');
+                return false;
+            }
+
+            if (securityQuestion && !securityAnswer) {
+                showMessage('Please provide an answer to your security question');
+                return false;
+            }
+
+            // Validate timezone selection
+            const businessTimezone = document.getElementById('businessTimezone').value;
+            if (!businessTimezone) {
+                showMessage('Please select your business timezone');
+                return false;
+            }
+
+            return true;
+        }
+
+        function nextStep(step) {
+            hideAllMessages();
+
+            if (step === 1) {
+                if (!validateStep1()) return;
+                
+                setupData.companyName = document.getElementById('companyName').value.trim();
+                setupData.adminName = document.getElementById('adminName').value.trim();
+                setupData.adminEmail = document.getElementById('adminEmail').value.trim();
+                
+                currentStep = 2;
+                showSection(2);
+            } else if (step === 2) {
+                if (!validateStep2()) return;
+                
+                setupData.adminPassword = document.getElementById('adminPassword').value;
+                setupData.securityQuestion = document.getElementById('securityQuestion').value;
+                setupData.securityAnswer = document.getElementById('securityAnswer').value.trim();
+                
+                // Add timezone data
+                const timezoneSelect = document.getElementById('businessTimezone');
+                setupData.businessTimezone = timezoneSelect.value;
+                setupData.timezoneAutoDetected = timezoneSelect.value === Intl.DateTimeFormat().resolvedOptions().timeZone;
+                
+                performSetup();
+            }
+        }
+
+        function previousStep(step) {
+            hideAllMessages();
+            currentStep = step - 1;
+            showSection(currentStep);
+        }
+
+        async function performSetup() {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = 'Setting up...';
+            
+            try {
+                const response = await fetch('/api/setup/complete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(setupData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Display recovery key
+                    document.getElementById('recovery-key-display').textContent = result.recoveryKey;
+                    
+                    currentStep = 3;
+                    showSection(3);
+                    
+                    // Store setup data for completion
+                    setupData.recoveryKey = result.recoveryKey;
+                } else {
+                    showMessage(result.error || 'Setup failed');
+                }
+            } catch (error) {
+                showMessage('Network error: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Complete Setup →';
+            }
+        }
+
+        function completeSetup() {
+            showMessage('Setup completed successfully! Redirecting to admin dashboard...', 'success');
+            
+            // Mark that setup was just completed (timestamp-based)
+            localStorage.setItem('setup_completed_at', Date.now().toString());
+            
+            setTimeout(() => {
+                window.location.href = '/admin.html';
+            }, 2000);
+        }
+
+        // Check if setup is required on page load
+        async function checkSetupStatus() {
+            try {
+                const response = await fetch('/api/setup/required');
+                const result = await response.json();
+                
+                if (!result.setupRequired) {
+                    // Setup already completed, redirect to admin
+                    window.location.href = '/admin.html';
+                }
+            } catch (error) {
+                console.error('Setup status check failed:', error);
+            }
+        }
+
+        // Timezone detection and management
+        function detectAndSetTimezone() {
+            try {
+                // Auto-detect user's timezone using Intl API
+                const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                const timezoneSelect = document.getElementById('businessTimezone');
+                const detectionDisplay = document.getElementById('timezone-detection');
+                
+                // Find if detected timezone is in our list
+                const option = timezoneSelect.querySelector(`option[value="${detectedTimezone}"]`);
+                
+                if (option) {
+                    // Auto-select the detected timezone
+                    timezoneSelect.value = detectedTimezone;
+                    detectionDisplay.innerHTML = `✅ Auto-detected: ${option.textContent}`;
+                    detectionDisplay.style.color = '#22543d';
+                } else {
+                    // Show detected timezone but let user choose manually
+                    const offset = new Date().getTimezoneOffset() / -60;
+                    const offsetStr = offset >= 0 ? `+${offset}` : `${offset}`;
+                    detectionDisplay.innerHTML = `🌍 Detected: ${detectedTimezone} (UTC${offsetStr}) - Please select closest match below`;
+                    detectionDisplay.style.color = '#c05621';
+                }
+            } catch (error) {
+                // Fallback for browsers without Intl support
+                console.log('Timezone auto-detection not available:', error);
+                const detectionDisplay = document.getElementById('timezone-detection');
+                detectionDisplay.innerHTML = '⚠️ Auto-detection unavailable - Please select your timezone manually';
+                detectionDisplay.style.color = '#c05621';
+            }
+        }
+
+        // Handle timezone selection change
+        function onTimezoneChange() {
+            const timezoneSelect = document.getElementById('businessTimezone');
+            const detectionDisplay = document.getElementById('timezone-detection');
+            
+            if (timezoneSelect.value) {
+                const selectedOption = timezoneSelect.options[timezoneSelect.selectedIndex];
+                detectionDisplay.innerHTML = `✅ Selected: ${selectedOption.textContent}`;
+                detectionDisplay.style.color = '#22543d';
+            }
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            checkSetupStatus();
+            
+            // Set up timezone detection after page load
+            setTimeout(() => {
+                detectAndSetTimezone();
+                
+                // Add change listener to timezone select
+                const timezoneSelect = document.getElementById('businessTimezone');
+                if (timezoneSelect) {
+                    timezoneSelect.addEventListener('change', onTimezoneChange);
+                }
+            }, 100);
+        });
+    </script>
+</body>
+</html>
