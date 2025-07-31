@@ -8,8 +8,8 @@ const fetch = globalThis.fetch || require('node-fetch');
 
 class LicenseService {
   constructor() {
-    // Enhanced secret key generation
-    this.secretKey = process.env.LICENSE_SECRET || this.generateSystemSecret();
+    // Fixed secret key for cross-system compatibility 
+    this.secretKey = process.env.LICENSE_SECRET || 'PPE-MANAGEMENT-MASTER-KEY-2024-SECURE-LICENSE-SYSTEM';
     this.algorithm = 'aes-256-gcm';
     this.licenseFileName = 'system.lic';
     
