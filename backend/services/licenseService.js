@@ -365,11 +365,15 @@ class LicenseService {
       // Check if it's new secure format (v2) or legacy format
       if (content.startsWith('v2:') || content.startsWith('v2|')) {
         console.log('🔐 Validating v2 secure license format...');
-        return await this.validateSecureLicense(content);
+        const result = await this.validateSecureLicense(content);
+        console.log(`🔍 validateSecureLicense returned:`, { valid: result.valid, error: result.error || 'none', client_name: result.client_name || 'none' });
+        return result;
       } else {
         console.log('📜 Validating legacy license format...');
         // Legacy Base64 format - still support but warn
-        return await this.validateLegacyLicense(content);
+        const result = await this.validateLegacyLicense(content);
+        console.log(`🔍 validateLegacyLicense returned:`, { valid: result.valid, error: result.error || 'none', client_name: result.client_name || 'none' });
+        return result;
       }
 
     } catch (error) {
@@ -928,26 +932,36 @@ class LicenseService {
         };
       }
       
-      // Hardware binding check
-      const currentFingerprint = this.getSystemFingerprint();
+      // License activation tracking (replaces hardware binding)
+      console.log(`🔍 Checking license activation for installation_id: ${payload.installation_id}`);
+      const activationCheck = await this.checkLicenseActivation(payload.installation_id, licenseContent);
+      console.log(`🔍 Activation check result:`, activationCheck);
+      console.log(`🔍 Activation details: isActivated=${activationCheck.isActivated}, isCurrentSystem=${activationCheck.isCurrentSystem}`);
       
-      if (payload.system_fingerprint && payload.system_fingerprint !== currentFingerprint) {
+      if (activationCheck.isActivated && !activationCheck.isCurrentSystem) {
+        console.log(`❌ License blocked: Already activated on different system`);
         return { 
           valid: false, 
-          error: 'License not authorized for this system - hardware mismatch' 
+          error: 'License key is already activated on another system. Each license can only be used once.' 
         };
       }
+      console.log(`✅ Activation check passed - proceeding with license validation`);
       
-      // Check if license is already activated on this system
-      if (!payload.system_fingerprint) {
-        // First activation - bind to this system
-        payload.system_fingerprint = currentFingerprint;
-        await this.updateLicenseBinding(payload.installation_id, currentFingerprint);
+      // First activation or license replacement - track this system
+      if (!activationCheck.isActivated) {
+        console.log(`🔄 Activating license for: ${payload.client_name}`);
+        await this.activateLicense(payload.installation_id, payload.client_name, licenseContent);
+        console.log(`✅ License activated for: ${payload.client_name}`);
+      } else {
+        console.log(`✅ License already activated on this system: ${payload.client_name}`);
       }
 
       // Anti-tampering: Check last validation timestamp  
+      console.log(`🔍 Checking for time jumps...`);
       const timeJumpCheck = await this.checkTimeJump(trustedTime);
+      console.log(`🔍 Time jump check result:`, timeJumpCheck);
       if (timeJumpCheck.suspicious) {
+        console.log(`❌ Time jump detected - blocking license`);
         return {
           valid: false,
           error: `Suspicious time jump detected: ${timeJumpCheck.message}`,
@@ -956,8 +970,11 @@ class LicenseService {
           current_time: trustedTime.toISOString()
         };
       }
+      console.log(`✅ Time jump check passed`);
       
       // Return validated license
+      console.log(`🎉 LICENSE VALIDATION SUCCESSFUL - Returning valid license for: ${payload.client_name}`);
+      console.log(`🎯 License tier: ${payload.subscription_tier}, Features: ${payload.features.length}, Days remaining: ${Math.ceil((expirationDate - trustedTime) / (1000 * 60 * 60 * 24))}`);
       return {
         valid: true,
         client_name: payload.client_name,
@@ -967,7 +984,7 @@ class LicenseService {
         expiration_date: payload.expiration_date,
         max_employees: payload.max_employees,
         installation_id: payload.installation_id,
-        system_fingerprint: payload.system_fingerprint,
+        activation_status: 'activated',
         days_remaining: Math.ceil((expirationDate - trustedTime) / (1000 * 60 * 60 * 24)),
         security_level: 'high',
         trusted_time_used: trustedTimeResult.trusted,
@@ -1108,22 +1125,80 @@ class LicenseService {
   }
 
   /**
-   * Update license binding in database
-   * @param {string} installationId - Installation ID
-   * @param {string} fingerprint - System fingerprint
+   * Check if THIS SPECIFIC license is already activated (replaces hardware binding)
+   * @param {string} installationId - Installation ID from current license
+   * @param {string} licenseKey - The specific license key being validated
+   * @returns {Object} Activation status
    */
-  async updateLicenseBinding(installationId, fingerprint) {
+  async checkLicenseActivation(installationId, licenseKey) {
+    const { getDb } = require('../database/init');
+    const db = getDb();
+    
+    console.log(`🔍 checkLicenseActivation called with installationId: ${installationId}`);
+    console.log(`🔍 licenseKey: ${licenseKey.substring(0, 20)}...`);
+    
+    return new Promise((resolve, reject) => {
+      db.get(`
+        SELECT installation_id, client_name, license_key 
+        FROM license_config 
+        WHERE id = 'current-license'
+      `, (err, row) => {
+        if (err) {
+          console.log(`❌ Database error in checkLicenseActivation:`, err);
+          reject(err);
+        } else {
+          console.log(`🔍 Database row found:`, row ? {
+            installation_id: row.installation_id,
+            client_name: row.client_name,
+            license_key: row.license_key ? `${row.license_key.substring(0, 20)}...` : 'null'
+          } : 'No row');
+          
+          if (!row || !row.license_key) {
+            // No license activated yet
+            console.log(`📝 No license activated yet - allowing activation`);
+            resolve({ isActivated: false, isCurrentSystem: false });
+          } else if (row.license_key === licenseKey) {
+            // Same license key - check installation ID
+            if (row.installation_id === installationId) {
+              // Same license, same installation ID - valid
+              console.log(`✅ Same license, same installation - allowing`);
+              resolve({ isActivated: true, isCurrentSystem: true, clientName: row.client_name });
+            } else {
+              // Same license, different installation ID - moved to different system
+              console.log(`❌ Same license, different installation - blocking`);
+              resolve({ isActivated: true, isCurrentSystem: false, clientName: row.client_name });
+            }
+          } else {
+            // Different license key - allow activation (replace old license)
+            console.log('🔄 Different license key - replacing existing license with new one');
+            resolve({ isActivated: false, isCurrentSystem: false });
+          }
+        }
+      });
+    });
+  }
+
+  /**
+   * Activate license on this system (replaces hardware binding)
+   * @param {string} installationId - Installation ID from license
+   * @param {string} clientName - Client name from license
+   * @param {string} licenseKey - The license key being activated
+   */
+  async activateLicense(installationId, clientName, licenseKey) {
     const { getDb } = require('../database/init');
     const db = getDb();
     
     return new Promise((resolve, reject) => {
       db.run(`
-        UPDATE license_config 
-        SET system_fingerprint = ?, installation_id = ?, updated_at = CURRENT_TIMESTAMP
-        WHERE id = 'current-license'
-      `, [fingerprint, installationId], (err) => {
+        INSERT OR REPLACE INTO license_config 
+        (id, installation_id, client_name, license_key, status, created_at, updated_at)
+        VALUES ('current-license', ?, ?, ?, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `, [installationId, clientName, licenseKey], (err) => {
         if (err) reject(err);
-        else resolve();
+        else {
+          console.log(`🔐 License activated: ${clientName} (${installationId})`);
+          resolve();
+        }
       });
     });
   }
@@ -1451,10 +1526,16 @@ class LicenseService {
       });
       
       if (dbLicense && dbLicense.license_key) {
+        console.log(`✅ Active license loaded from database`);
+        console.log(`🔍 Database license info: client=${dbLicense.client_name}, status=${dbLicense.status}`);
+        
         // Validate the stored license
+        console.log(`🔍 About to validate license from database...`);
         const validation = await this.validateLicense(dbLicense.license_key);
+        console.log(`🔍 License validation completed. Result: valid=${validation.valid}, error=${validation.error || 'none'}`);
         
         if (validation.valid) {
+          console.log(`✅ Database license validation PASSED - processing status...`);
           const expirationDate = new Date(validation.expiration_date);
           const now = new Date();
           const daysRemaining = Math.ceil((expirationDate - now) / (1000 * 60 * 60 * 24));
@@ -1466,7 +1547,7 @@ class LicenseService {
             status = 'expiring_soon';
           }
           
-          return await this.cacheValidationResult({
+          const finalResult = {
             status: status,
             client_name: validation.client_name,
             subscription_tier: validation.subscription_tier,
@@ -1474,14 +1555,22 @@ class LicenseService {
             days_remaining: daysRemaining,
             features: validation.features,
             max_employees: validation.max_employees
-          });
+          };
+          console.log(`🎉 RETURNING SUCCESSFUL LICENSE STATUS:`, finalResult);
+          return await this.cacheValidationResult(finalResult);
+        } else {
+          console.log(`❌ Database license validation FAILED - validation.valid is false`);
+          console.log(`❌ Validation error: ${validation.error}`);
         }
       }
       
       // Fallback to file-based license (legacy)
+      console.log(`🔍 No database license found - trying file-based license (legacy)...`);
       const fileLicense = await this.validateLicense();
       
       if (!fileLicense.valid) {
+        console.log(`❌ File-based license validation also failed: ${fileLicense.error}`);
+        console.log(`🔒 No valid license found - all features disabled`);
         return await this.cacheValidationResult({
           status: 'invalid',
           error: fileLicense.error,

@@ -50,26 +50,11 @@ router.post('/upload', upload.single('licenseFile'), async (req, res) => {
       });
     }
     
-    // Store license in database (primary storage)
-    const db = getDb();
-    await new Promise((resolve, reject) => {
-      db.run(`
-        INSERT OR REPLACE INTO license_config 
-        (id, license_key, company_name, max_users, features, expires_at, status, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      `, [
-        'current-license',
-        licenseContent,
-        validation.client_name,
-        validation.max_employees,
-        JSON.stringify(validation.features),
-        validation.expiration_date,
-        'active'
-      ], (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
+    // License is already stored by validation process - don't overwrite
+    // The validateLicense() method calls activateLicense() which properly saves:
+    // - installation_id, client_name, license_key, status
+    // We don't need to save again here as it would overwrite activation data
+    console.log('✅ License already stored during validation process with activation data');
 
     // Also save to file for redundancy
     try {
@@ -133,26 +118,11 @@ router.post('/activate', async (req, res) => {
       });
     }
     
-    // Store license in database
-    const db = getDb();
-    await new Promise((resolve, reject) => {
-      db.run(`
-        INSERT OR REPLACE INTO license_config 
-        (id, license_key, company_name, max_users, features, expires_at, status, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      `, [
-        'current-license',
-        licenseKey.trim(),
-        validation.client_name,
-        validation.max_employees,
-        JSON.stringify(validation.features),
-        validation.expiration_date,
-        'active'
-      ], (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
+    // License is already stored by validation process - don't overwrite
+    // The validateLicense() method calls activateLicense() which properly saves:
+    // - installation_id, client_name, license_key, status  
+    // We don't need to save again here as it would overwrite activation data
+    console.log('✅ License already stored during validation process with activation data');
     
     console.log(`✅ License activated for ${validation.client_name} (${validation.subscription_tier})`);
     
