@@ -82,11 +82,48 @@ router.get('/:id', checkFeatureAccess('basic_ppe_management'), async (req, res) 
 
 // Create new station
 // Create new station (Multi-location required - Pro+ only)
-router.post('/', checkFeatureAccess('multi_location'), async (req, res) => {
+router.post('/', async (req, res) => {
   const db = getDb();
   const { name, location, description } = req.body;
   
   try {
+    // Check license and station limits
+    const licenseService = require('../services/licenseService');
+    const licenseStatus = await licenseService.getLicenseStatus();
+    
+    // Check if user has basic station management OR multi-location
+    const hasBasicStations = await licenseService.isFeatureEnabled('basic_station_management');
+    const hasMultiLocation = await licenseService.isFeatureEnabled('multi_location');
+    
+    if (!hasBasicStations && !hasMultiLocation) {
+      return res.status(403).json({
+        error: 'Feature not available in your current license',
+        feature: 'station_management',
+        message: 'Station management is not available in your current subscription plan. Please upgrade your license.',
+        upgrade_required: true
+      });
+    }
+    
+    // Check station count limit for basic users
+    if (hasBasicStations && !hasMultiLocation) {
+      const stationCount = await new Promise((resolve, reject) => {
+        db.get('SELECT COUNT(*) as count FROM stations WHERE active = 1', (err, row) => {
+          if (err) reject(err);
+          else resolve(row.count);
+        });
+      });
+      
+      if (stationCount >= 1) {
+        return res.status(403).json({
+          error: 'Station limit reached',
+          message: 'Basic plan allows only 1 station. Upgrade to Pro for unlimited stations.',
+          current_stations: stationCount,
+          max_stations: 1,
+          upgrade_required: true
+        });
+      }
+    }
+    
     const stationId = uuidv4();
     const qrCode = `STATION_${stationId.slice(0, 8).toUpperCase()}`;
     

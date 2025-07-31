@@ -28,6 +28,30 @@ class LicenseService {
   }
 
   /**
+   * Generate system fingerprint for license activation tracking
+   * @returns {string} System fingerprint hash
+   */
+  generateSystemFingerprint() {
+    const platform = os.platform();
+    const arch = os.arch();
+    const hostname = os.hostname();
+    const username = os.userInfo().username;
+    const systemInfo = platform + arch + hostname + username;
+    
+    console.log(`🔍 System Fingerprint Details:`);
+    console.log(`   Platform: ${platform}`);
+    console.log(`   Architecture: ${arch}`);
+    console.log(`   Hostname: ${hostname}`);
+    console.log(`   Username: ${username}`);
+    console.log(`   Combined: ${systemInfo}`);
+    
+    const fingerprint = crypto.createHash('sha256').update(systemInfo + 'PPE-SYSTEM-ID-2024').digest('hex');
+    console.log(`   Final fingerprint: ${fingerprint.substring(0, 20)}...`);
+    
+    return fingerprint;
+  }
+
+  /**
    * Cache license validation result to prevent excessive API calls
    * @param {Object} result - Validation result to cache
    * @returns {Object} The same result for chaining
@@ -932,29 +956,8 @@ class LicenseService {
         };
       }
       
-      // License activation tracking (replaces hardware binding)
-      console.log(`🔍 Checking license activation for installation_id: ${payload.installation_id}`);
-      const activationCheck = await this.checkLicenseActivation(payload.installation_id, licenseContent);
-      console.log(`🔍 Activation check result:`, activationCheck);
-      console.log(`🔍 Activation details: isActivated=${activationCheck.isActivated}, isCurrentSystem=${activationCheck.isCurrentSystem}`);
-      
-      if (activationCheck.isActivated && !activationCheck.isCurrentSystem) {
-        console.log(`❌ License blocked: Already activated on different system`);
-        return { 
-          valid: false, 
-          error: 'License key is already activated on another system. Each license can only be used once.' 
-        };
-      }
-      console.log(`✅ Activation check passed - proceeding with license validation`);
-      
-      // First activation or license replacement - track this system
-      if (!activationCheck.isActivated) {
-        console.log(`🔄 Activating license for: ${payload.client_name}`);
-        await this.activateLicense(payload.installation_id, payload.client_name, licenseContent);
-        console.log(`✅ License activated for: ${payload.client_name}`);
-      } else {
-        console.log(`✅ License already activated on this system: ${payload.client_name}`);
-      }
+      // Simple license validation - no complex sharing prevention needed for server deployment
+      console.log(`✅ License format and signature verified - proceeding with validation`);
 
       // Anti-tampering: Check last validation timestamp  
       console.log(`🔍 Checking for time jumps...`);
@@ -1137,9 +1140,13 @@ class LicenseService {
     console.log(`🔍 checkLicenseActivation called with installationId: ${installationId}`);
     console.log(`🔍 licenseKey: ${licenseKey.substring(0, 20)}...`);
     
+    // Generate current system fingerprint for comparison
+    const currentSystemId = this.generateSystemFingerprint();
+    console.log(`🔍 Current system fingerprint: ${currentSystemId.substring(0, 20)}...`);
+    
     return new Promise((resolve, reject) => {
       db.get(`
-        SELECT installation_id, client_name, license_key 
+        SELECT installation_id, client_name, license_key, system_fingerprint 
         FROM license_config 
         WHERE id = 'current-license'
       `, (err, row) => {
@@ -1150,27 +1157,31 @@ class LicenseService {
           console.log(`🔍 Database row found:`, row ? {
             installation_id: row.installation_id,
             client_name: row.client_name,
-            license_key: row.license_key ? `${row.license_key.substring(0, 20)}...` : 'null'
+            license_key: row.license_key ? `${row.license_key.substring(0, 20)}...` : 'null',
+            system_fingerprint: row.system_fingerprint ? `${row.system_fingerprint.substring(0, 20)}...` : 'null'
           } : 'No row');
           
           if (!row || !row.license_key) {
             // No license activated yet
-            console.log(`📝 No license activated yet - allowing activation`);
+            console.log(`📝 No database record found - this is a fresh system, allowing activation`);
             resolve({ isActivated: false, isCurrentSystem: false });
           } else if (row.license_key === licenseKey) {
-            // Same license key - check installation ID
-            if (row.installation_id === installationId) {
-              // Same license, same installation ID - valid
-              console.log(`✅ Same license, same installation - allowing`);
+            // Same license key found in database - check if it's the same system
+            if (row.system_fingerprint === currentSystemId) {
+              // Same license, same system - valid (already activated here)
+              console.log(`✅ Same license, same system - already activated here, allowing`);
               resolve({ isActivated: true, isCurrentSystem: true, clientName: row.client_name });
             } else {
-              // Same license, different installation ID - moved to different system
-              console.log(`❌ Same license, different installation - blocking`);
+              // Same license, different system - BLOCK sharing
+              console.log(`❌ BLOCKING: Same license key found but activated on different system`);
+              console.log(`❌ Database shows activation on system: ${row.system_fingerprint ? row.system_fingerprint.substring(0, 20) : 'null'}...`);
+              console.log(`❌ Current system fingerprint: ${currentSystemId.substring(0, 20)}...`);
+              console.log(`❌ This indicates license sharing - preventing activation`);
               resolve({ isActivated: true, isCurrentSystem: false, clientName: row.client_name });
             }
           } else {
             // Different license key - allow activation (replace old license)
-            console.log('🔄 Different license key - replacing existing license with new one');
+            console.log('🔄 Different license key found - replacing existing license with new one');
             resolve({ isActivated: false, isCurrentSystem: false });
           }
         }
@@ -1188,15 +1199,20 @@ class LicenseService {
     const { getDb } = require('../database/init');
     const db = getDb();
     
+    // Generate system fingerprint for this activation
+    const systemFingerprint = this.generateSystemFingerprint();
+    console.log(`🔐 Activating license with system fingerprint: ${systemFingerprint.substring(0, 20)}...`);
+    
     return new Promise((resolve, reject) => {
       db.run(`
         INSERT OR REPLACE INTO license_config 
-        (id, installation_id, client_name, license_key, status, created_at, updated_at)
-        VALUES ('current-license', ?, ?, ?, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      `, [installationId, clientName, licenseKey], (err) => {
+        (id, installation_id, client_name, license_key, system_fingerprint, status, created_at, updated_at)
+        VALUES ('current-license', ?, ?, ?, ?, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `, [installationId, clientName, licenseKey, systemFingerprint], (err) => {
         if (err) reject(err);
         else {
           console.log(`🔐 License activated: ${clientName} (${installationId})`);
+          console.log(`🔐 System fingerprint stored: ${systemFingerprint.substring(0, 20)}...`);
           resolve();
         }
       });

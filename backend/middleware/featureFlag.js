@@ -228,6 +228,15 @@ const FEATURE_DEFINITIONS = {
     tier: 'basic',
     price: 49
   },
+  'basic_station_management': {
+    name: 'Basic Station Management',
+    description: 'Create and manage up to 1 station location',
+    tier: 'basic',
+    price: 49,
+    limits: {
+      max_stations: 1
+    }
+  },
   
   // Pro features (RM 89/month)
   'advanced_reports': {

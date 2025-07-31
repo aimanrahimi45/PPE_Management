@@ -609,6 +609,22 @@ const initDatabase = () => {
             } else {
               console.log('ℹ️  enabled_features column already exists in license_config');
             }
+
+            // Add system_fingerprint column if it doesn't exist (for license sharing prevention)
+            if (!checkLicenseColumnExists('system_fingerprint')) {
+              try {
+                db.prepare(`ALTER TABLE license_config ADD COLUMN system_fingerprint TEXT`).run();
+                console.log('✅ Added system_fingerprint column to license_config table');
+              } catch (err) {
+                if (err.message.includes('duplicate column name')) {
+                  console.log('ℹ️  system_fingerprint column already exists in license_config');
+                } else {
+                  console.log(`ℹ️  license_config system_fingerprint migration: ${err.message}`);
+                }
+              }
+            } else {
+              console.log('ℹ️  system_fingerprint column already exists in license_config');
+            }
             
             console.log('✅ License configuration columns check completed');
           } catch (licenseConfigError) {
