@@ -36,6 +36,46 @@ router.post('/upload', upload.single('licenseFile'), async (req, res) => {
     // Read the uploaded license file
     const licenseContent = fs.readFileSync(req.file.path, 'utf8');
     
+    // Auto-clear license cache when new license is uploaded
+    console.log('🗑️ Auto-clearing license cache for new license upload...');
+    try {
+      const licenseService = require('../services/licenseService');
+      const vpsLicenseService = require('../services/vpsLicenseService');
+      
+      // Clear license service cache
+      if (licenseService.clearValidationCache) {
+        licenseService.clearValidationCache();
+        console.log('✅ License service cache cleared');
+      }
+      
+      // Clear VPS service cache
+      if (vpsLicenseService.validationCache) {
+        vpsLicenseService.validationCache.result = null;
+        vpsLicenseService.validationCache.timestamp = null;
+        vpsLicenseService.validationCache.licenseKey = null;
+        console.log('✅ VPS service cache cleared');
+      }
+      
+      // Clear database license cache (remove old license records)
+      const { getDb } = require('../database/init');
+      const db = getDb();
+      if (db) {
+        await new Promise((resolve) => {
+          db.run(`DELETE FROM license_config WHERE id = 'current-license'`, function(err) {
+            if (!err && this.changes > 0) {
+              console.log(`✅ Removed ${this.changes} old license record(s) from database`);
+            }
+            resolve();
+          });
+        });
+      }
+      
+      console.log('✅ License cache auto-cleared for fresh validation');
+    } catch (cacheError) {
+      console.warn('⚠️ Cache clearing failed:', cacheError.message);
+      // Don't fail upload if cache clearing fails
+    }
+    
     // Clean up uploaded file
     fs.unlinkSync(req.file.path);
     
@@ -48,6 +88,75 @@ router.post('/upload', upload.single('licenseFile'), async (req, res) => {
         error: validation.error,
         details: 'Please check your license file and try again'
       });
+    }
+    
+    // Check for license sharing - block immediately regardless of grace period
+    if (validation.licenseSharing || (validation.error && (
+        validation.error.includes('License already in use') ||
+        validation.error.includes('already active on another device') ||
+        validation.error.includes('License sharing detected')
+    ))) {
+      console.log('🚨 License sharing detected - blocking upload');
+      return res.status(403).json({
+        success: false,
+        error: 'License sharing detected',
+        message: '🚨 This license is already active on another device. Each license can only be used on one device at a time.',
+        details: 'If you need to move your license to this device, please deactivate it on the previous device first.',
+        errorType: 'license_sharing'
+      });
+    }
+
+    // VPS License Activation
+    let vpsActivationResult = null;
+    if (process.env.ENABLE_VPS_LICENSE_CHECK === 'true') {
+      console.log('🌐 Activating license on VPS server...');
+      const vpsLicenseService = require('../services/vpsLicenseService');
+      
+      try {
+        const vpsActivation = await vpsLicenseService.activateLicense(licenseContent, {
+          clientName: validation.client_name,
+          subscriptionTier: validation.subscription_tier,
+          activationSource: 'file_upload',
+          userAgent: req.headers['user-agent'],
+          ipAddress: req.ip
+        });
+        
+        vpsActivationResult = vpsActivation;
+        
+        // Check for license sharing - return specific error
+        if (!vpsActivation.success && vpsActivation.error === 'License already in use') {
+          console.log('🚨 License sharing detected:', vpsActivation.error);
+          return res.status(403).json({
+            success: false,
+            error: 'License sharing detected',
+            message: '🚨 This license is already active on another device. Each license can only be used on one device at a time.',
+            details: 'If you need to move your license to this device, please deactivate it on the previous device first.',
+            vpsError: true,
+            errorType: 'license_sharing'
+          });
+        }
+        
+        if (!vpsActivation.success && !vpsActivation.fallbackMode) {
+          console.log('❌ VPS license activation failed:', vpsActivation.error);
+          return res.status(400).json({
+            success: false,
+            error: 'License activation failed on server',
+            details: vpsActivation.details || vpsActivation.error,
+            vpsError: true
+          });
+        }
+        
+        if (vpsActivation.success) {
+          console.log('✅ License successfully activated on VPS server');
+        } else {
+          console.log('⚠️ VPS activation failed, continuing in fallback mode');
+        }
+        
+      } catch (vpsError) {
+        console.log('⚠️ VPS activation error, continuing with local activation:', vpsError.message);
+        // Continue with local activation as fallback
+        vpsActivationResult = { success: false, fallbackMode: true, error: vpsError.message };
+      }
     }
     
     // License is already stored by validation process - don't overwrite
@@ -67,9 +176,22 @@ router.post('/upload', upload.single('licenseFile'), async (req, res) => {
     
     console.log(`✅ License activated for ${validation.client_name} (${validation.subscription_tier})`);
     
-    res.json({
+    // Determine appropriate success message based on VPS validation status
+    let successMessage = 'License activated successfully!';
+    let warningMessage = null;
+    
+    if (vpsActivationResult) {
+      if (vpsActivationResult.success) {
+        successMessage = '🛡️ License activated and validated with secure server!';
+      } else if (vpsActivationResult.fallbackMode) {
+        successMessage = 'License activated in offline mode';
+        warningMessage = '⚠️ Could not connect to license validation server. License is valid for 7 days offline.';
+      }
+    }
+    
+    const response = {
       success: true,
-      message: 'License activated successfully!',
+      message: successMessage,
       license: {
         client_name: validation.client_name,
         subscription_tier: validation.subscription_tier,
@@ -78,7 +200,14 @@ router.post('/upload', upload.single('licenseFile'), async (req, res) => {
         expires_at: validation.expiration_date,
         features_count: validation.features.length
       }
-    });
+    };
+    
+    if (warningMessage) {
+      response.warning = warningMessage;
+      response.gracePeriodActive = true;
+    }
+    
+    res.json(response);
     
   } catch (error) {
     // Clean up file if it exists

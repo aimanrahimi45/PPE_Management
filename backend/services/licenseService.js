@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const fs = require('fs').promises;
 const path = require('path');
 const os = require('os');
+const { getDb } = require('../database/init');
 
 // Use built-in fetch (Node.js 18+) or fallback to node-fetch
 const fetch = globalThis.fetch || require('node-fetch');
@@ -25,6 +26,192 @@ class LicenseService {
       licenseFileModTime: null, // Track license file modification time
       dbLastModified: null // Track database changes
     };
+  }
+
+  /**
+   * Check if VPS validation is required
+   * @param {string} licenseContent - License content to check
+   * @returns {Promise<{required: boolean, reason: string, critical: boolean}>}
+   */
+  async isVPSValidationRequired(licenseContent) {
+    const db = getDb();
+    
+    // Always require VPS validation for fresh setups (no successful VPS validation in last 30 days)
+    const lastSuccessful = await new Promise((resolve) => {
+      db.get(`
+        SELECT last_vps_validation, vps_validation_failures 
+        FROM license_config 
+        WHERE id = 1
+      `, [], (err, row) => {
+        resolve(err ? null : row);
+      });
+    });
+    
+    if (!lastSuccessful || !lastSuccessful.last_vps_validation) {
+      return {
+        required: true,
+        reason: 'Fresh setup - initial VPS validation required',
+        critical: true
+      };
+    }
+    
+    const lastValidation = new Date(lastSuccessful.last_vps_validation);
+    const daysSinceValidation = (Date.now() - lastValidation.getTime()) / (1000 * 60 * 60 * 24);
+    
+    // Require VPS validation every 24 hours
+    if (daysSinceValidation >= 1) {
+      return {
+        required: true,
+        reason: `Periodic validation required (${Math.floor(daysSinceValidation)} days since last check)`,
+        critical: daysSinceValidation >= 7 // Critical if more than 7 days
+      };
+    }
+    
+    // Check for tamper detection triggers
+    if (lastSuccessful.vps_validation_failures > 5) {
+      return {
+        required: true,
+        reason: 'Multiple validation failures detected - security check required',
+        critical: true
+      };
+    }
+    
+    return {
+      required: false,
+      reason: 'Recent validation successful',
+      critical: false
+    };
+  }
+
+  /**
+   * Check VPS grace period status
+   * @returns {Promise<{inGracePeriod: boolean, daysRemaining: number, totalDays: number}>}
+   */
+  async checkVPSGracePeriod() {
+    const db = getDb();
+    const gracePeriodDays = 7;
+    
+    const gracePeriodInfo = await new Promise((resolve) => {
+      db.get(`
+        SELECT 
+          last_successful_vps_validation,
+          vps_grace_period_start,
+          vps_validation_failures
+        FROM license_config 
+        WHERE id = 1
+      `, [], (err, row) => {
+        resolve(err ? null : row);
+      });
+    });
+    
+    if (!gracePeriodInfo) {
+      return {
+        inGracePeriod: true, // Default to grace period for new systems
+        daysRemaining: gracePeriodDays,
+        totalDays: gracePeriodDays
+      };
+    }
+    
+    const lastSuccessful = gracePeriodInfo.last_successful_vps_validation;
+    const graceStart = gracePeriodInfo.vps_grace_period_start;
+    
+    if (!lastSuccessful && !graceStart) {
+      // Never validated successfully and no grace period started
+      return {
+        inGracePeriod: true,
+        daysRemaining: gracePeriodDays,
+        totalDays: gracePeriodDays
+      };
+    }
+    
+    // Calculate grace period from last successful validation or grace start
+    const referenceDate = new Date(graceStart || lastSuccessful);
+    const daysSinceReference = (Date.now() - referenceDate.getTime()) / (1000 * 60 * 60 * 24);
+    const daysRemaining = Math.max(0, gracePeriodDays - daysSinceReference);
+    
+    return {
+      inGracePeriod: daysRemaining > 0,
+      daysRemaining: Math.ceil(daysRemaining),
+      totalDays: gracePeriodDays
+    };
+  }
+
+  /**
+   * Record successful VPS validation
+   */
+  async recordSuccessfulVPSValidation() {
+    const db = getDb();
+    
+    return new Promise((resolve) => {
+      db.run(`
+        UPDATE license_config 
+        SET 
+          last_vps_validation = CURRENT_TIMESTAMP,
+          last_successful_vps_validation = CURRENT_TIMESTAMP,
+          vps_validation_failures = 0,
+          vps_grace_period_start = NULL
+        WHERE id = 1
+      `, [], (err) => {
+        if (err) {
+          console.error('Error recording successful VPS validation:', err);
+        } else {
+          console.log('✅ VPS validation success recorded');
+        }
+        resolve();
+      });
+    });
+  }
+
+  /**
+   * Record VPS validation failure
+   * @param {string} errorMessage - Error message
+   */
+  async recordVPSValidationFailure(errorMessage) {
+    const db = getDb();
+    
+    return new Promise((resolve) => {
+      db.run(`
+        UPDATE license_config 
+        SET 
+          last_vps_validation = CURRENT_TIMESTAMP,
+          vps_validation_failures = COALESCE(vps_validation_failures, 0) + 1,
+          vps_grace_period_start = COALESCE(vps_grace_period_start, CURRENT_TIMESTAMP),
+          last_vps_error = ?
+        WHERE id = 1
+      `, [errorMessage], (err) => {
+        if (err) {
+          console.error('Error recording VPS validation failure:', err);
+        } else {
+          console.log('⚠️ VPS validation failure recorded');
+        }
+        resolve();
+      });
+    });
+  }
+
+  /**
+   * Get friendly error message for VPS validation failures
+   * @param {string} vpsError - Original VPS error
+   * @returns {string} User-friendly error message
+   */
+  getFriendlyVPSError(vpsError) {
+    const errorMappings = {
+      'License already activated': 'This license is already being used on another computer. Each license can only be used on one device.',
+      'Device fingerprint mismatch': 'This license is registered to a different computer. Please use the original computer or contact support.',
+      'License not activated': 'This license needs to be activated online. Please check your internet connection and try again.',
+      'Invalid license key format': 'The license file appears to be corrupted or invalid. Please download a fresh copy of your license.',
+      'License not found': 'This license is not recognized by our validation server. Please verify you have the correct license file.'
+    };
+    
+    // Find matching error message
+    for (const [key, friendlyMessage] of Object.entries(errorMappings)) {
+      if (vpsError && vpsError.includes(key)) {
+        return friendlyMessage;
+      }
+    }
+    
+    // Default friendly message
+    return 'License validation failed. Please check your internet connection and ensure you have a valid license file.';
   }
 
   /**
@@ -376,6 +563,94 @@ class LicenseService {
           }
           console.log('📄 Loading license from file system...');
           content = await fs.readFile(this.licensePath, 'utf8');
+        }
+      }
+
+      // Enhanced VPS License Validation System
+      const vpsConfigService = require('./vpsConfigService');
+      const vpsValidationRequired = await this.isVPSValidationRequired(content);
+      
+      // Check for tampering attempts
+      const integrityStatus = await vpsConfigService.getSystemIntegrityStatus();
+      if (!integrityStatus.secure) {
+        console.log('🚨 System integrity compromised:', integrityStatus.issues);
+        // Force VPS validation regardless of grace period
+        vpsValidationRequired.required = true;
+        vpsValidationRequired.critical = true;
+        vpsValidationRequired.reason = 'Security validation required - configuration tampering detected';
+      }
+      
+      if (vpsValidationRequired.required || vpsConfigService.shouldForceVPSValidation()) {
+        console.log('🔒 VPS license validation required:', vpsValidationRequired.reason);
+        const vpsLicenseService = require('./vpsLicenseService');
+        
+        try {
+          const vpsResult = await vpsLicenseService.validateWithVPS(content);
+          
+          if (vpsResult.vpsValidated && !vpsResult.valid) {
+            console.log('❌ VPS license validation failed:', vpsResult.error);
+            
+            // Check if we're in grace period
+            const graceStatus = await this.checkVPSGracePeriod();
+            if (graceStatus.inGracePeriod) {
+              console.log(`⚠️ VPS validation failed but in grace period (${graceStatus.daysRemaining} days left)`);
+              await this.recordVPSValidationFailure(vpsResult.error);
+              
+              // For license sharing errors, block immediately regardless of grace period
+              if (vpsResult.error?.includes('License already in use') || 
+                  vpsResult.error?.includes('already active on another device') ||
+                  vpsResult.error?.includes('License sharing detected')) {
+                console.log('🚨 License sharing detected - blocking despite grace period');
+                return {
+                  valid: false,
+                  error: vpsResult.error,
+                  details: vpsResult.details,
+                  vpsValidated: true,
+                  deviceMatch: false,
+                  licenseSharing: true,
+                  gracePeriodOverride: true
+                };
+              }
+              
+              // Continue with local validation but preserve VPS error info
+              this.vpsValidationError = vpsResult.error; // Store for later use
+            } else {
+              return {
+                valid: false,
+                error: this.getFriendlyVPSError(vpsResult.error),
+                details: vpsResult.details,
+                vpsValidated: true,
+                deviceMatch: vpsResult.deviceMatch || false,
+                gracePeriodExpired: !graceStatus.inGracePeriod
+              };
+            }
+          }
+          
+          if (vpsResult.vpsValidated && vpsResult.valid) {
+            console.log('✅ VPS license validation successful');
+            await this.recordSuccessfulVPSValidation();
+            // Continue with local validation
+          }
+          
+        } catch (vpsError) {
+          console.log('⚠️ VPS validation communication error:', vpsError.message);
+          
+          // Check grace period for communication failures
+          const graceStatus = await this.checkVPSGracePeriod();
+          if (graceStatus.inGracePeriod) {
+            console.log(`⚠️ VPS unreachable but in grace period (${graceStatus.daysRemaining} days left)`);
+            await this.recordVPSValidationFailure(`Communication error: ${vpsError.message}`);
+            // Continue with local validation
+          } else if (vpsValidationRequired.critical) {
+            return {
+              valid: false,
+              error: 'License validation server unreachable. Please check your internet connection.',
+              details: 'This license requires online validation. Please ensure you have internet access and try again.',
+              vpsValidated: false,
+              networkError: true,
+              gracePeriodExpired: true
+            };
+          }
         }
       }
       

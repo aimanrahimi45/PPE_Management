@@ -1830,7 +1830,56 @@
         }
         
         .refreshing {
+            position: relative;
+            opacity: 0.7;
+            pointer-events: none;
+        }
+        
+        .refreshing::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 16px;
+            height: 16px;
+            margin: -8px 0 0 -8px;
+            border: 2px solid #ffffff;
+            border-top: 2px solid transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        /* Loading overlay for sections */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+            border-radius: 8px;
+        }
+        
+        .loading-spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #e5e7eb;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
             animation: spin 1s linear infinite;
+        }
+        
+        .loading-content {
+            text-align: center;
+            color: #6b7280;
+        }
+        
+        .loading-content .loading-spinner {
+            margin: 0 auto 12px;
         }
         
         .dashboard-content {
@@ -3009,7 +3058,7 @@
             <div class="modal-body" style="padding: 0;">
                 <div id="chartControls" style="padding: 20px; background: #f8fafc; border-bottom: 1px solid #e5e7eb;">
                     <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
-                        <select id="chartPeriod" style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;">
+                        <select id="chartPeriod" onchange="refreshChart()" style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;">
                             <option value="7">Last 7 days</option>
                             <option value="30" selected>Last 30 days</option>
                             <option value="90">Last 90 days</option>
@@ -5728,12 +5777,16 @@ Notes: ${request.notes || 'None'}`);
         
         function refreshReports() {
             animateRefreshButton(event, async () => {
+                // Show loading overlay on reports content
+                showLoadingOverlay('reportsContent', 'Refreshing reports...');
+                
                 displayReportsInterface();
                 // Wait a bit for the interface to render, then refresh mini-charts
                 setTimeout(() => {
                     loadMiniCharts();
+                    hideLoadingOverlay('reportsContent');
+                    showToast('📊 Reports and charts refreshed', 'success');
                 }, 200);
-                showToast('📊 Reports and charts refreshed', 'success');
             });
         }
         
@@ -7552,16 +7605,20 @@ Notes: ${request.notes || 'None'}`);
         }
         
         
-        // Animate refresh button with spinning effect
+        // Professional refresh animation with loading feedback
         function animateRefreshButton(event, callback) {
             if (!event || !event.target) return;
             
             const button = event.target.closest('button');
             if (!button) return;
             
-            // Add spinning animation
+            // Store original button content
+            const originalContent = button.innerHTML;
+            
+            // Add loading state to button
             button.classList.add('refreshing');
             button.disabled = true;
+            button.innerHTML = originalContent; // Keep original text, styling handles the spinner
             
             // Execute the callback function
             const result = callback();
@@ -7572,13 +7629,57 @@ Notes: ${request.notes || 'None'}`);
                     setTimeout(() => {
                         button.classList.remove('refreshing');
                         button.disabled = false;
-                    }, 500); // Minimum animation time
+                        button.innerHTML = originalContent;
+                    }, 300); // Shorter delay for better UX
                 });
             } else {
+                // For synchronous operations, restore button after a short delay
                 setTimeout(() => {
                     button.classList.remove('refreshing');
                     button.disabled = false;
-                }, 500);
+                    button.innerHTML = originalContent;
+                }, 300);
+            }
+        }
+        
+        // Show loading overlay for specific containers
+        function showLoadingOverlay(containerId, message = 'Loading...') {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            // Make container relative if not already
+            const computedStyle = window.getComputedStyle(container);
+            if (computedStyle.position === 'static') {
+                container.style.position = 'relative';
+            }
+            
+            // Remove existing overlay
+            const existingOverlay = container.querySelector('.loading-overlay');
+            if (existingOverlay) {
+                existingOverlay.remove();
+            }
+            
+            // Create loading overlay
+            const overlay = document.createElement('div');
+            overlay.className = 'loading-overlay';
+            overlay.innerHTML = `
+                <div class="loading-content">
+                    <div class="loading-spinner"></div>
+                    <div>${message}</div>
+                </div>
+            `;
+            
+            container.appendChild(overlay);
+        }
+        
+        // Hide loading overlay
+        function hideLoadingOverlay(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            const overlay = container.querySelector('.loading-overlay');
+            if (overlay) {
+                overlay.remove();
             }
         }
 
@@ -7657,7 +7758,11 @@ Notes: ${request.notes || 'None'}`);
 
         async function refreshChart() {
             if (currentAnalyticsType) {
-                animateRefreshButton(event, () => loadProfessionalChart(currentAnalyticsType));
+                animateRefreshButton(event, async () => {
+                    showLoadingOverlay('analyticsChartContainer', 'Refreshing chart...');
+                    await loadProfessionalChart(currentAnalyticsType);
+                    // loadProfessionalChart already handles hiding overlay by replacing content
+                });
             }
         }
 

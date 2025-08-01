@@ -7,6 +7,7 @@ const auditService = require('../services/auditService');
 const staffPPEService = require('../services/staffPPEService');
 const emailService = require('../services/emailService');
 const staffVerificationService = require('../services/staffVerificationService');
+const notificationHelper = require('../services/notificationHelper');
 
 const router = express.Router();
 
@@ -336,6 +337,18 @@ router.post('/request', validatePPERequest, async (req, res) => {
                       status: 'PENDING',
                       timestamp: new Date().toISOString()
                     });
+                    
+                    // Send push notification for new PPE request
+                    try {
+                      await notificationHelper.sendNotificationIfEnabled('ppe_request_new', {
+                        requestId,
+                        staffName: staffName || 'Unknown',
+                        itemCount: items.length
+                      });
+                    } catch (pushNotificationError) {
+                      console.error('Failed to send new PPE request push notification:', pushNotificationError);
+                      // Continue - don't fail the request if push notification fails
+                    }
                     
                     // Send email notification to Safety Officer
                     try {

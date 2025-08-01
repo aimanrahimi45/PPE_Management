@@ -384,6 +384,63 @@ class NotificationService {
       url: '/admin.html?tab=inventory'
     });
   }
+
+  /**
+   * Send notification for new PPE requests (to admins)
+   */
+  async notifyNewPPERequest(staffId, requestId, requesterName, itemCount) {
+    await this.sendPushNotification(staffId, {
+      title: '📋 New PPE Request',
+      body: `${requesterName} submitted a new PPE request (${itemCount} items)`,
+      type: 'ppe_request_new',
+      data: {
+        requestId,
+        requesterName,
+        itemCount
+      },
+      url: '/admin.html?tab=pending-approvals'
+    });
+  }
+
+  /**
+   * Send notification for license expiration warnings (to admins)
+   */
+  async notifyLicenseExpiration(staffId, daysRemaining, expirationDate) {
+    const urgency = daysRemaining <= 7 ? '🚨' : '⚠️';
+    const message = daysRemaining <= 0 
+      ? 'System license has expired!'
+      : `System license expires in ${daysRemaining} days`;
+
+    await this.sendPushNotification(staffId, {
+      title: `${urgency} License Expiration`,
+      body: message,
+      type: 'license_expiring',
+      data: {
+        daysRemaining,
+        expirationDate
+      },
+      url: '/admin.html?tab=features'
+    });
+  }
+
+  /**
+   * Send notification for usage summaries (to admins)
+   */
+  async notifyUsageSummary(staffId, period, stats) {
+    const periodText = period === 'weekly' ? 'Weekly' : 'Monthly';
+    const message = `${periodText} PPE Usage: ${stats.totalRequests} requests, ${stats.totalItems} items issued`;
+
+    await this.sendPushNotification(staffId, {
+      title: `📊 ${periodText} Summary`,
+      body: message,
+      type: `${period}_summary`,
+      data: {
+        period,
+        stats
+      },
+      url: '/admin.html?tab=reports'
+    });
+  }
 }
 
 module.exports = new NotificationService();

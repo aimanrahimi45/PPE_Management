@@ -420,6 +420,82 @@ class EmailService {
   }
 
   /**
+   * Send VPS grace period warning email
+   */
+  async sendGracePeriodWarning(graceStatus) {
+    try {
+      const { getDb } = require('../database/init');
+      const db = getDb();
+      
+      // Get admin email from database
+      const adminEmail = await new Promise((resolve) => {
+        db.get(`SELECT email FROM users WHERE role = 'ADMIN' LIMIT 1`, [], (err, row) => {
+          resolve(err ? null : row?.email);
+        });
+      });
+
+      if (!adminEmail) {
+        console.log('No admin email found for grace period warning');
+        return;
+      }
+
+      const subject = `⚠️ PPE Management License Validation Warning`;
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: #ff6b35; color: white; padding: 20px; text-align: center;">
+            <h1 style="margin: 0;">⚠️ License Validation Warning</h1>
+          </div>
+          
+          <div style="padding: 30px; background: #f9f9f9;">
+            <h2 style="color: #333;">Action Required: Internet Connection Needed</h2>
+            
+            <p style="font-size: 16px; line-height: 1.6;">
+              Your PPE Management system needs to validate its license online. 
+              The system is currently operating in grace period mode.
+            </p>
+            
+            <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #ff6b35;">
+              <h3 style="margin-top: 0; color: #ff6b35;">Grace Period Status</h3>
+              <p><strong>Days Remaining:</strong> ${graceStatus.daysRemaining} days</p>
+              <p><strong>Total Grace Period:</strong> ${graceStatus.totalDays} days</p>
+            </div>
+            
+            <h3 style="color: #333;">What You Need to Do:</h3>
+            <ol style="font-size: 16px; line-height: 1.8;">
+              <li><strong>Check Internet Connection:</strong> Ensure your PPE Management system has internet access</li>
+              <li><strong>Restart the System:</strong> Restart the PPE Management application to attempt validation</li>
+              <li><strong>Contact Support:</strong> If issues persist, contact support with your license details</li>
+            </ol>
+            
+            <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0; color: #856404;">
+                <strong>Important:</strong> After ${graceStatus.daysRemaining} days, the system will require 
+                successful online validation to continue operating.
+              </p>
+            </div>
+            
+            <p style="font-size: 14px; color: #666; margin-top: 30px;">
+              This is an automated message from your PPE Management system. 
+              For support, please contact your system administrator.
+            </p>
+          </div>
+          
+          <div style="background: #333; color: white; padding: 15px; text-align: center; font-size: 12px;">
+            PPE Management System - License Validation Service
+          </div>
+        </div>
+      `;
+
+      await this.sendEmail(adminEmail, subject, html);
+      console.log(`✅ Grace period warning email sent to ${adminEmail}`);
+      
+    } catch (error) {
+      console.error('❌ Failed to send grace period warning email:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Send test email to verify configuration
    */
   async sendTestEmail(recipientEmail) {

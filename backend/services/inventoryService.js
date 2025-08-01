@@ -1,5 +1,6 @@
 const { getDb } = require('../database/init');
 const { v4: uuidv4 } = require('uuid');
+const notificationHelper = require('./notificationHelper');
 
 // Check for low stock items and generate alerts
 async function checkLowStock(io) {
@@ -75,6 +76,19 @@ async function checkLowStock(io) {
             currentStock: item.current_stock,
             severity
           });
+        }
+        
+        // Send push notification based on preferences
+        try {
+          const notificationType = severity === 'CRITICAL' ? 'stock_critical' : 'stock_low';
+          await notificationHelper.sendNotificationIfEnabled(notificationType, {
+            stationName: item.station_name,
+            itemName: item.item_name,
+            currentStock: item.current_stock,
+            threshold: item.min_threshold
+          });
+        } catch (notificationError) {
+          console.error('Failed to send low stock push notification:', notificationError);
         }
       }
     }
