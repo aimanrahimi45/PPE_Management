@@ -382,6 +382,7 @@ app.use('/api/inventory-management', require('./routes/inventoryManagement'));
 app.use('/api/super-admin', require('./routes/superAdmin'));
 app.use('/api/features', require('./routes/features'));
 app.use('/api/license', require('./routes/license'));
+// VPS License Validation Routes will be loaded after database initialization
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/email-config', require('./routes/emailConfig'));
 // Test route removed for production
@@ -520,9 +521,114 @@ async function startServer() {
     // Run migrations for existing databases
     runMigrations();
     
+    // Run VPS validation columns migration
+    try {
+      const { addVPSValidationColumns } = require('./database/migrations/add_vps_validation_columns');
+      await addVPSValidationColumns();
+      console.log('✅ VPS validation columns migration completed');
+    } catch (migrationError) {
+      console.log('⚠️ VPS validation columns migration skipped:', migrationError.message);
+    }
+    
+    // Load VPS License Validation Routes after database is ready
+    try {
+      const vpsLicenseRoutes = require('./routes/vps-license');
+      app.use('/api/license', vpsLicenseRoutes);
+      console.log('✅ VPS License validation routes loaded successfully');
+    } catch (vpsRouteError) {
+      console.error('❌ Failed to load VPS license routes:', vpsRouteError.message);
+    }
+    
     // Super admin disabled for customer distribution
     // const superAdminService = require('./services/superAdminService');
     // await superAdminService.initializeSuperAdmin();
+
+// Generate usage summary statistics for notifications
+async function generateUsageSummary(period) {
+  try {
+    const { getDb } = require('./database/init');
+    const db = getDb();
+    
+    // Calculate date range based on period
+    const now = new Date();
+    let startDate;
+    
+    if (period === 'weekly') {
+      startDate = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+    } else if (period === 'monthly') {
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+    } else {
+      startDate = new Date(now.getTime() - (24 * 60 * 60 * 1000)); // Daily fallback
+    }
+    
+    // Get PPE request statistics
+    const requestStats = await new Promise((resolve, reject) => {
+      db.get(`
+        SELECT 
+          COUNT(*) as totalRequests,
+          SUM(CASE WHEN status = 'APPROVED' THEN 1 ELSE 0 END) as approvedRequests,
+          SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) as rejectedRequests,
+          SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END) as pendingRequests
+        FROM ppe_requests 
+        WHERE created_at >= ?
+      `, [startDate.toISOString()], (err, row) => {
+        if (err) reject(err);
+        else resolve(row || { totalRequests: 0, approvedRequests: 0, rejectedRequests: 0, pendingRequests: 0 });
+      });
+    });
+    
+    // Get total items issued
+    const itemStats = await new Promise((resolve, reject) => {
+      db.get(`
+        SELECT 
+          COALESCE(SUM(quantity), 0) as totalItems
+        FROM ppe_request_items pri
+        JOIN ppe_requests pr ON pri.request_id = pr.id
+        WHERE pr.created_at >= ? AND pr.status = 'APPROVED'
+      `, [startDate.toISOString()], (err, row) => {
+        if (err) reject(err);
+        else resolve(row || { totalItems: 0 });
+      });
+    });
+    
+    // Get active staff count
+    const staffStats = await new Promise((resolve, reject) => {
+      db.get(`
+        SELECT COUNT(DISTINCT staff_id) as activeStaff
+        FROM ppe_requests 
+        WHERE created_at >= ?
+      `, [startDate.toISOString()], (err, row) => {
+        if (err) reject(err);
+        else resolve(row || { activeStaff: 0 });
+      });
+    });
+    
+    return {
+      period,
+      startDate: startDate.toISOString(),
+      endDate: now.toISOString(),
+      totalRequests: requestStats.totalRequests || 0,
+      approvedRequests: requestStats.approvedRequests || 0,
+      rejectedRequests: requestStats.rejectedRequests || 0,
+      pendingRequests: requestStats.pendingRequests || 0,
+      totalItems: itemStats.totalItems || 0,
+      activeStaff: staffStats.activeStaff || 0
+    };
+    
+  } catch (error) {
+    console.error(`Generate ${period} usage summary error:`, error);
+    return {
+      period,
+      totalRequests: 0,
+      approvedRequests: 0,
+      rejectedRequests: 0,
+      pendingRequests: 0,
+      totalItems: 0,
+      activeStaff: 0,
+      error: error.message
+    };
+  }
+}
     
     server.listen(PORT, '0.0.0.0', () => {
       const networkIP = getNetworkIP();
@@ -538,6 +644,138 @@ async function startServer() {
     // Start background jobs
     cron.schedule('*/5 * * * *', () => {
       checkLowStock(io);
+    });
+    
+    // License expiration check (daily at 8 AM)
+    cron.schedule('0 8 * * *', async () => {
+      console.log('🔒 Running daily license expiration check...');
+      try {
+        const licenseService = require('./services/licenseService');
+        const notificationHelper = require('./services/notificationHelper');
+        
+        const licenseStatus = await licenseService.getLicenseStatus();
+        
+        if (licenseStatus && licenseStatus.expiration_date) {
+          const daysRemaining = licenseStatus.days_remaining || 0;
+          
+          // Send notifications for expiring licenses
+          if (daysRemaining <= 30 && daysRemaining >= 0) {
+            console.log(`⚠️ License expires in ${daysRemaining} days - sending notification`);
+            
+            await notificationHelper.sendNotificationIfEnabled('license_expiring', {
+              daysRemaining,
+              expirationDate: licenseStatus.expiration_date
+            });
+          } else if (daysRemaining < 0) {
+            console.log(`🚨 License expired ${Math.abs(daysRemaining)} days ago - sending urgent notification`);
+            
+            await notificationHelper.sendNotificationIfEnabled('license_expiring', {
+              daysRemaining,
+              expirationDate: licenseStatus.expiration_date
+            });
+          }
+        }
+      } catch (error) {
+        console.error('❌ License expiration check error:', error);
+      }
+    });
+    
+    // Weekly summary (Mondays at 9 AM)
+    cron.schedule('0 9 * * 1', async () => {
+      console.log('📊 Generating weekly summary notifications...');
+      try {
+        const notificationHelper = require('./services/notificationHelper');
+        const summaryStats = await generateUsageSummary('weekly');
+        
+        await notificationHelper.sendNotificationIfEnabled('weekly_summary', {
+          period: 'weekly',
+          stats: summaryStats
+        });
+      } catch (error) {
+        console.error('❌ Weekly summary notification error:', error);
+      }
+    });
+    
+    // Monthly summary (1st of month at 10 AM)
+    cron.schedule('0 10 1 * *', async () => {
+      console.log('📊 Generating monthly summary notifications...');
+      try {
+        const notificationHelper = require('./services/notificationHelper');
+        const summaryStats = await generateUsageSummary('monthly');
+        
+        await notificationHelper.sendNotificationIfEnabled('monthly_summary', {
+          period: 'monthly',
+          stats: summaryStats
+        });
+      } catch (error) {
+        console.error('❌ Monthly summary notification error:', error);
+      }
+    });
+    
+    // Process scheduled notifications (daily at 6 PM)
+    cron.schedule('0 18 * * *', async () => {
+      console.log('📅 Processing scheduled notifications...');
+      try {
+        const notificationHelper = require('./services/notificationHelper');
+        
+        // Initialize scheduled notifications table if needed
+        await notificationHelper.initializeScheduledNotificationsTable();
+        
+        // Process daily batched notifications
+        await notificationHelper.processScheduledNotifications('daily');
+      } catch (error) {
+        console.error('❌ Process scheduled notifications error:', error);
+      }
+    });
+    
+    // Process weekly scheduled notifications (Fridays at 6 PM)
+    cron.schedule('0 18 * * 5', async () => {
+      console.log('📅 Processing weekly scheduled notifications...');
+      try {
+        const notificationHelper = require('./services/notificationHelper');
+        await notificationHelper.processScheduledNotifications('weekly');
+      } catch (error) {
+        console.error('❌ Process weekly scheduled notifications error:', error);
+      }
+    });
+
+    // VPS License Validation Check (every 6 hours)
+    cron.schedule('0 */6 * * *', async () => {
+      console.log('🔒 Running periodic VPS license validation...');
+      try {
+        const licenseService = require('./services/licenseService');
+        const result = await licenseService.validateLicense();
+        
+        if (result.valid) {
+          console.log('✅ Periodic VPS license validation successful');
+        } else {
+          console.log('⚠️ Periodic VPS license validation failed:', result.error);
+        }
+      } catch (error) {
+        console.error('❌ Periodic VPS license validation error:', error);
+      }
+    });
+
+    // VPS Grace Period Warning (daily at 9 AM)
+    cron.schedule('0 9 * * *', async () => {
+      try {
+        const licenseService = require('./services/licenseService');
+        const graceStatus = await licenseService.checkVPSGracePeriod();
+        
+        if (graceStatus.inGracePeriod && graceStatus.daysRemaining <= 3) {
+          console.log(`⚠️ VPS validation grace period warning: ${graceStatus.daysRemaining} days remaining`);
+          
+          // Send notification to admin if email is configured
+          try {
+            const emailService = require('./services/emailService');
+            await emailService.sendGracePeriodWarning(graceStatus);
+          } catch (emailError) {
+            console.log('Note: Could not send grace period warning email:', emailError.message);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Grace period check error:', error);
+      }
     });
     
   } catch (error) {

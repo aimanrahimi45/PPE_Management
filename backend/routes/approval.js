@@ -76,14 +76,14 @@ router.post('/approve/:requestId', authenticateToken, async (req, res) => {
     try {
       const requestDetails = await approvalWorkflowService.getRequestDetails(requestId);
       console.log('📱 Request details for notification:', {
-        staff_id: requestDetails.staff_id,
+        staff_id: requestDetails.request ? requestDetails.request.staff_id : undefined,
         requestId: requestId,
         hasItems: requestDetails.items ? true : false
       });
       
-      if (requestDetails.staff_id) {
+      if (requestDetails.request && requestDetails.request.staff_id) {
         await notificationService.notifyRequestStatusUpdate(
-          requestDetails.staff_id,
+          requestDetails.request.staff_id,
           requestId,
           'approved',
           {
@@ -132,14 +132,14 @@ router.post('/reject/:requestId', authenticateToken, async (req, res) => {
     try {
       const requestDetails = await approvalWorkflowService.getRequestDetails(requestId);
       console.log('📱 Request details for rejection notification:', {
-        staff_id: requestDetails.staff_id,
+        staff_id: requestDetails.request ? requestDetails.request.staff_id : undefined,
         requestId: requestId,
         hasItems: requestDetails.items ? true : false
       });
       
-      if (requestDetails.staff_id) {
+      if (requestDetails.request && requestDetails.request.staff_id) {
         await notificationService.notifyRequestStatusUpdate(
-          requestDetails.staff_id,
+          requestDetails.request.staff_id,
           requestId,
           'rejected',
           {
