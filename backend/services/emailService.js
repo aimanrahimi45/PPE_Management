@@ -328,6 +328,94 @@ class EmailService {
   }
 
   /**
+   * Send rejection notification to Store Personnel
+   */
+  async notifyStorePersonnelRejection(requestData) {
+    try {
+      // Check if email is configured and enabled first
+      const config = await emailConfigService.getEmailConfig();
+      if (!config || !config.enabled || !config.smtp_host) {
+        console.log('📧 Email notifications disabled or not configured - skipping store personnel rejection notification');
+        return { success: true, message: 'Email notifications are disabled' };
+      }
+      
+      const transporter = await this.getTransporter();
+      if (!transporter) {
+        console.log('📧 No email transporter available - skipping store personnel rejection notification');
+        return { success: true, message: 'Email transporter not available' };
+      }
+      
+      const recipients = await emailConfigService.getRecipientEmails();
+      const { requestId, staffName, staffId, department, items, rejectedBy, rejectionReason } = requestData;
+      
+      const subject = `❌ PPE Request Rejected - ${staffName} (${requestId.substring(0, 8)})`;
+      
+      const htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: #dc3545; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h2 style="margin: 0;">❌ PPE Request Rejected</h2>
+            <p style="margin: 8px 0 0 0;">A PPE request has been rejected by Safety Officer</p>
+          </div>
+          
+          <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="color: #333; margin-top: 0;">Request Details</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #555;">Request ID:</td>
+                <td style="padding: 8px 0;">${requestId}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #555;">Staff Member:</td>
+                <td style="padding: 8px 0;">${staffName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #555;">Staff ID:</td>
+                <td style="padding: 8px 0;">${staffId}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #555;">Department:</td>
+                <td style="padding: 8px 0;">${department}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #555;">Items Requested:</td>
+                <td style="padding: 8px 0;">${items}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #555;">Rejected By:</td>
+                <td style="padding: 8px 0;">${rejectedBy}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #555;">Reason:</td>
+                <td style="padding: 8px 0;">${rejectionReason}</td>
+              </tr>
+            </table>
+          </div>
+          
+          <div style="background: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 6px; margin-top: 20px;">
+            <p style="margin: 0; color: #721c24;">
+              📋 <strong>Action:</strong> No PPE items need to be prepared for this request. The staff member has been notified of the rejection.
+            </p>
+          </div>
+        </div>
+      `;
+
+      const mailOptions = {
+        from: config?.smtp_from || 'PPE Management System <noreply@ppemanagement.com>',
+        to: recipients.store_personnel,
+        subject,
+        html: htmlContent
+      };
+
+      const info = await transporter.sendMail(mailOptions);
+      console.log('✅ Store Personnel rejection notification sent:', info.messageId);
+      return { success: true, messageId: info.messageId };
+    } catch (error) {
+      console.error('❌ Failed to send Store Personnel rejection notification:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
    * Send stock alert email to store personnel
    */
   async sendStockAlert(alertData) {

@@ -312,12 +312,15 @@ function notifyClients(type, data) {
 self.addEventListener('push', (event) => {
   console.log('SW: Push notification received');
   
-  const options = {
+  // Default notification options
+  let title = 'PPE Manager';
+  let options = {
     body: 'You have a new PPE alert',
     icon: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="40" fill="%2327AE60"/%3E%3Cpath d="M30 50h40M50 30v40" stroke="white" stroke-width="4" stroke-linecap="round"/%3E%3C/svg%3E',
     badge: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="40" fill="%2327AE60"/%3E%3Cpath d="M30 50h40M50 30v40" stroke="white" stroke-width="4" stroke-linecap="round"/%3E%3C/svg%3E',
     tag: 'ppe-alert',
     renotify: true,
+    requireInteraction: false,
     actions: [
       {
         action: 'view',
@@ -330,14 +333,68 @@ self.addEventListener('push', (event) => {
     ]
   };
   
+  // Parse payload from backend
   if (event.data) {
-    const payload = event.data.json();
-    options.body = payload.message || options.body;
-    options.data = payload;
+    try {
+      const payload = event.data.json();
+      console.log('SW: Push payload received:', payload);
+      
+      // Update title and body from payload
+      title = payload.title || title;
+      options.body = payload.body || options.body;
+      
+      // Set notification tag based on type for grouping
+      if (payload.type) {
+        options.tag = payload.type;
+      }
+      
+      // Add custom data for notification click handling
+      options.data = {
+        type: payload.type,
+        requestId: payload.data?.requestId,
+        staffId: payload.data?.staffId,
+        url: payload.data?.url || '/',
+        timestamp: Date.now(),
+        ...payload.data
+      };
+      
+      // Customize icon based on notification type
+      switch (payload.type) {
+        case 'ppe_request_new':
+          options.icon = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="40" fill="%234CAF50"/%3E%3Ctext x="50" y="60" font-family="Arial" font-size="30" fill="white" text-anchor="middle"%3E📋%3C/text%3E%3C/svg%3E';
+          break;
+        case 'ppe_request_approved':
+          options.icon = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="40" fill="%2327AE60"/%3E%3Ctext x="50" y="60" font-family="Arial" font-size="30" fill="white" text-anchor="middle"%3E✅%3C/text%3E%3C/svg%3E';
+          break;
+        case 'ppe_request_rejected':
+          options.icon = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="40" fill="%23E74C3C"/%3E%3Ctext x="50" y="60" font-family="Arial" font-size="30" fill="white" text-anchor="middle"%3E❌%3C/text%3E%3C/svg%3E';
+          break;
+        case 'stock_low':
+          options.icon = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="40" fill="%23FF9800"/%3E%3Ctext x="50" y="60" font-family="Arial" font-size="30" fill="white" text-anchor="middle"%3E⚠️%3C/text%3E%3C/svg%3E';
+          break;
+        case 'stock_critical':
+          options.icon = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="40" fill="%23F44336"/%3E%3Ctext x="50" y="60" font-family="Arial" font-size="30" fill="white" text-anchor="middle"%3E🚨%3C/text%3E%3C/svg%3E';
+          break;
+        case 'license_expiring':
+          options.icon = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="40" fill="%23673AB7"/%3E%3Ctext x="50" y="60" font-family="Arial" font-size="30" fill="white" text-anchor="middle"%3E📜%3C/text%3E%3C/svg%3E';
+          break;
+        default:
+          // Keep default icon
+          break;
+      }
+      
+      // Set priority for critical notifications
+      if (payload.type === 'stock_critical' || payload.type === 'license_expiring') {
+        options.requireInteraction = true;
+      }
+      
+    } catch (error) {
+      console.error('SW: Error parsing push payload:', error);
+    }
   }
   
   event.waitUntil(
-    self.registration.showNotification('PPE Manager', options)
+    self.registration.showNotification(title, options)
   );
 });
 

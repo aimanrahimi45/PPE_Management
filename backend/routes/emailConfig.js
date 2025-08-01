@@ -228,6 +228,16 @@ router.get('/notification-types', authenticateToken, checkFeatureAccess('email_n
                 type: 'monthly_summary',
                 name: 'Monthly Summary Reports',
                 description: 'Monthly summary of PPE usage and statistics'
+            },
+            {
+                type: 'condition_report_new',
+                name: 'New Condition Reports',
+                description: 'Notification when staff submit new PPE condition reports'
+            },
+            {
+                type: 'condition_report_update',
+                name: 'Condition Report Updates',
+                description: 'Notification when condition reports are resolved or updated'
             }
         ];
         

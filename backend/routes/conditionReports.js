@@ -4,6 +4,7 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { getDb } = require('../database/init');
 const notificationService = require('../services/notificationService');
+const notificationHelper = require('../services/notificationHelper');
 const { checkFeatureAccess } = require('../middleware/featureFlag');
 
 const router = express.Router();
@@ -293,25 +294,18 @@ router.post('/submit', checkFeatureAccess('condition_reporting'), ensureTableExi
         });
       });
       
-      console.log(`📧 Sending condition report notification to ${adminUsers.length} admin(s)`);
+      console.log(`📧 Sending condition report notification via preferences`);
       
-      for (const admin of adminUsers) {
-        await notificationService.sendPushNotification(admin.staff_id, {
-          title: '🔧 PPE Condition Report',
-          body: `${staffName} reported: ${description.substring(0, 100)}${description.length > 100 ? '...' : ''}`,
-          type: 'condition_report',
-          data: {
-            reportId: reportId,
-            staffId: staffId,
-            staffName: staffName,
-            severity: severity,
-            hasPhoto: !!photoPath,
-            location: location,
-            photoUrl: photoPath ? `/uploads/condition-reports/${photoPath}` : null
-          },
-          url: '/admin.html?tab=condition-reports'
-        });
-      }
+      await notificationHelper.sendNotificationIfEnabled('condition_report_new', {
+        reportId: reportId,
+        reporterStaffId: staffId,
+        staffName: staffName,
+        description: description,
+        severity: severity,
+        hasPhoto: !!photoPath,
+        location: location,
+        photoUrl: photoPath ? `/uploads/condition-reports/${photoPath}` : null
+      });
     } catch (notificationError) {
       console.error('Failed to send condition report notification:', notificationError);
       // Continue - don't fail the report if notification fails
@@ -497,16 +491,11 @@ router.put('/:reportId/status', checkFeatureAccess('condition_reporting'), ensur
         });
 
         if (report) {
-          await notificationService.sendPushNotification(report.staff_id, {
-            title: status === 'resolved' ? '✅ Condition Report Resolved' : '📝 Condition Report Updated',
-            body: resolutionNotes || `Your condition report has been marked as ${status}`,
-            type: 'condition_report_update',
-            data: {
-              reportId: reportId,
-              status: status,
-              resolutionNotes: resolutionNotes
-            },
-            url: '/worker-mobile.html?tab=notifications'
+          await notificationHelper.sendNotificationIfEnabled('condition_report_update', {
+            reportId: reportId,
+            reporterStaffId: report.staff_id,
+            status: status,
+            resolutionNotes: resolutionNotes
           });
         }
       } catch (notificationError) {

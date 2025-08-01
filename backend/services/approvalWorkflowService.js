@@ -322,15 +322,16 @@ class ApprovalWorkflowService {
         const emailData = {
           requestId,
           staffName: requestDetails.request.staff_name || 'Unknown',
-          staffEmail: process.env.STORE_PERSONNEL_EMAIL || 'store@company.com',
+          staffId: requestDetails.request.staff_id || 'N/A',
+          department: requestDetails.request.department || 'N/A',
           items: requestDetails.items.map(item => `${item.item_name} (${item.quantity})`).join(', '),
           rejectedBy: rejectionData.rejectorName || rejectedBy,
           rejectionReason: reason
         };
         
-        await emailService.notifyRejectedPPERequest(emailData);
+        await emailService.notifyStorePersonnelRejection(emailData);
       } catch (emailError) {
-        console.error('Failed to send rejection notification email:', emailError);
+        console.error('Failed to send store personnel rejection notification email:', emailError);
       }
 
       return { success: true, rejectionId, requestId };

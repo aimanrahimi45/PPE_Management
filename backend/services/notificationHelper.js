@@ -6,6 +6,7 @@
 
 const emailConfigService = require('./emailConfigService');
 const notificationService = require('./notificationService');
+const emailService = require('./emailService');
 
 class NotificationHelper {
   constructor() {
@@ -43,7 +44,7 @@ class NotificationHelper {
       
       // For immediate notifications, send right away
       if (frequency === 'immediate') {
-        await this.sendPushNotification(notificationType, notificationData);
+        await this.sendAllNotifications(notificationType, notificationData);
         return true;
       }
       
@@ -55,6 +56,19 @@ class NotificationHelper {
       console.error(`Send ${notificationType} notification error:`, error);
       return false;
     }
+  }
+
+  /**
+   * Send both email and push notifications based on type
+   * @param {string} notificationType - Type of notification
+   * @param {object} data - Notification data
+   */
+  async sendAllNotifications(notificationType, data) {
+    // Send push notification
+    await this.sendPushNotification(notificationType, data);
+    
+    // Send email notification
+    await this.sendEmailNotification(notificationType, data);
   }
 
   /**
@@ -113,11 +127,123 @@ class NotificationHelper {
         );
         break;
         
+      case 'condition_report_new':
+        await notificationService.sendPushNotification(staffId, {
+          title: '🔧 PPE Condition Report',
+          body: `${data.staffName} reported: ${data.description?.substring(0, 100)}${data.description?.length > 100 ? '...' : ''}`,
+          type: 'condition_report',
+          data: {
+            reportId: data.reportId,
+            staffId: data.reporterStaffId,
+            staffName: data.staffName,
+            severity: data.severity,
+            hasPhoto: data.hasPhoto,
+            location: data.location
+          },
+          url: '/admin.html?tab=condition-reports'
+        });
+        break;
+        
+      case 'condition_report_update':
+        await notificationService.sendPushNotification(data.reporterStaffId || staffId, {
+          title: data.status === 'resolved' ? '✅ Condition Report Resolved' : '📝 Condition Report Updated',
+          body: data.resolutionNotes || `Your condition report has been marked as ${data.status}`,
+          type: 'condition_report_update',
+          data: {
+            reportId: data.reportId,
+            status: data.status,
+            resolutionNotes: data.resolutionNotes
+          },
+          url: '/worker-mobile.html?tab=notifications'
+        });
+        break;
+        
       default:
         console.warn(`Unknown notification type: ${notificationType}`);
     }
     
     console.log(`✅ ${notificationType} push notification sent`);
+  }
+
+  /**
+   * Send email notification based on type
+   * @param {string} notificationType - Type of notification
+   * @param {object} data - Notification data
+   */
+  async sendEmailNotification(notificationType, data) {
+    try {
+      switch (notificationType) {
+        case 'ppe_request_new':
+          // Send email to Safety Officer/Admin about new PPE request
+          const emailData = {
+            requestId: data.requestId,
+            staffName: data.staffName || 'Unknown',
+            staffId: data.staffId || 'N/A', 
+            department: data.department || 'N/A',
+            items: data.items || 'Items not specified',
+            stationName: data.stationName || 'Unknown Station',
+            createdAt: new Date().toISOString()
+          };
+          
+          await emailService.notifyNewPPERequest(emailData);
+          break;
+          
+        case 'ppe_request_approved':
+          // Email already sent by approvalWorkflowService
+          console.log('📧 PPE request approved email handled by approval workflow');
+          break;
+          
+        case 'ppe_request_rejected':
+          // Email already sent by approvalWorkflowService  
+          console.log('📧 PPE request rejected email handled by approval workflow');
+          break;
+          
+        case 'stock_low':
+        case 'stock_critical':
+          // Stock alert emails
+          const stockAlertData = {
+            alertType: notificationType === 'stock_critical' ? 'CRITICAL' : 'LOW',
+            stationName: data.stationName,
+            itemName: data.itemName,
+            currentStock: data.currentStock,
+            threshold: data.threshold,
+            severity: notificationType === 'stock_critical' ? 'CRITICAL' : 'LOW',
+            timestamp: new Date().toISOString()
+          };
+          
+          await emailService.sendStockAlert(stockAlertData);
+          break;
+          
+        case 'license_expiring':
+          // License expiration emails - could be added later
+          console.log('📧 License expiration email notification (to be implemented)');
+          break;
+          
+        case 'weekly_summary':
+        case 'monthly_summary':
+          // Usage summary emails - could be added later
+          console.log(`📧 ${data.period || notificationType} summary email notification (to be implemented)`);
+          break;
+          
+        case 'condition_report_new':
+          // New condition report email notification - could be added later if needed
+          console.log('📧 New condition report email notification (notifications are primarily push-based)');
+          break;
+          
+        case 'condition_report_update':
+          // Condition report update email notification - could be added later if needed
+          console.log('📧 Condition report update email notification (notifications are primarily push-based)');
+          break;
+          
+        default:
+          console.warn(`📧 No email notification handler for: ${notificationType}`);
+      }
+      
+      console.log(`✅ ${notificationType} email notification processed`);
+      
+    } catch (error) {
+      console.error(`❌ Failed to send ${notificationType} email notification:`, error);
+    }
   }
 
   /**

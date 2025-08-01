@@ -80,22 +80,29 @@ router.post('/test', async (req, res) => {
   try {
     const { staffId, title, body } = req.body;
 
-    if (!staffId || !title || !body) {
+    if (!staffId) {
       return res.status(400).json({ 
-        error: 'Staff ID, title, and body are required' 
+        error: 'Staff ID is required' 
       });
     }
 
+    // Use default test notification content if not provided
+    const testTitle = title || '🧪 Test Notification';
+    const testBody = body || `Push notifications are working! Sent at ${new Date().toLocaleString()}`;
+
     const result = await notificationService.sendPushNotification(staffId, {
-      title,
-      body,
+      title: testTitle,
+      body: testBody,
       type: 'test',
-      data: { timestamp: new Date().toISOString() }
+      data: { 
+        timestamp: new Date().toISOString(),
+        isTest: true
+      }
     });
 
     res.json({
       success: result.success,
-      message: result.success ? 'Test notification sent' : 'Failed to send notification',
+      message: result.success ? 'Test notification sent successfully' : 'Failed to send notification',
       details: result
     });
 

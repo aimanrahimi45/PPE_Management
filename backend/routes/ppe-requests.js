@@ -3,6 +3,7 @@ const { getDb } = require('../database/init');
 const { v4: uuidv4 } = require('uuid');
 const licenseService = require('../services/licenseService');
 const emailService = require('../services/emailService');
+const notificationHelper = require('../services/notificationHelper');
 const { checkFeatureAccess } = require('../middleware/featureFlag');
 
 const router = express.Router();
@@ -144,21 +145,19 @@ router.post('/', checkFeatureAccess('basic_ppe_management'), async (req, res) =>
         })
       );
 
-      const emailData = {
+      console.log('📧 Sending safety officer notification for request:', requestId);
+      await notificationHelper.sendNotificationIfEnabled('ppe_request_new', {
         requestId,
         staffName: staffName || 'Unknown',
         staffId: staffId || 'N/A',
         department: department || 'N/A',
+        itemCount: items.length,
         items: ppeItemsWithNames.join(', '),
-        stationName: stationName,
-        createdAt: new Date().toISOString() // Let timezoneUtils.formatForEmail() handle Malaysia timezone
-      };
-      
-      console.log('📧 Sending safety officer notification for request:', requestId);
-      await emailService.notifyNewPPERequest(emailData);
-    } catch (emailError) {
-      console.error('❌ Failed to send Safety Officer notification email:', emailError);
-      // Don't fail the request if email fails
+        stationName: stationName
+      });
+    } catch (notificationError) {
+      console.error('❌ Failed to send PPE request notification:', notificationError);
+      // Don't fail the request if notification fails
     }
     
     // Broadcast to admin dashboard

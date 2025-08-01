@@ -338,19 +338,7 @@ router.post('/request', validatePPERequest, async (req, res) => {
                       timestamp: new Date().toISOString()
                     });
                     
-                    // Send push notification for new PPE request
-                    try {
-                      await notificationHelper.sendNotificationIfEnabled('ppe_request_new', {
-                        requestId,
-                        staffName: staffName || 'Unknown',
-                        itemCount: items.length
-                      });
-                    } catch (pushNotificationError) {
-                      console.error('Failed to send new PPE request push notification:', pushNotificationError);
-                      // Continue - don't fail the request if push notification fails
-                    }
-                    
-                    // Send email notification to Safety Officer
+                    // Send notification for new PPE request (both email and push via preferences)
                     try {
                       // Get readable PPE item names for email
                       const ppeItemsWithNames = await Promise.all(
@@ -371,19 +359,18 @@ router.post('/request', validatePPERequest, async (req, res) => {
                         })
                       );
 
-                      const emailData = {
+                      await notificationHelper.sendNotificationIfEnabled('ppe_request_new', {
                         requestId,
                         staffName: staffName || 'Unknown',
                         staffId: staffId || 'N/A',
                         department: department || 'N/A',
+                        itemCount: items.length,
                         items: ppeItemsWithNames.join(', '),
-                        stationName: station.name,
-                        createdAt: new Date().toISOString() // Let timezoneUtils.formatForEmail() handle Malaysia timezone
-                      };
-                      
-                      await emailService.notifyNewPPERequest(emailData);
-                    } catch (emailError) {
-                      console.error('Failed to send Safety Officer notification email:', emailError);
+                        stationName: station.name
+                      });
+                    } catch (notificationError) {
+                      console.error('Failed to send new PPE request notification:', notificationError);
+                      // Continue - don't fail the request if notification fails
                     }
                     
                     res.json({

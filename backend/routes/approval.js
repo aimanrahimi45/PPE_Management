@@ -1,6 +1,7 @@
 const express = require('express');
 const approvalWorkflowService = require('../services/approvalWorkflowService');
 const notificationService = require('../services/notificationService');
+const notificationHelper = require('../services/notificationHelper');
 const { authenticateToken, authenticateWithCompany } = require('../middleware/auth');
 const { enforceLicenseCompliance } = require('../middleware/licenseEnforcement');
 
@@ -72,7 +73,7 @@ router.post('/approve/:requestId', authenticateToken, async (req, res) => {
       userAgent
     });
     
-    // Send push notification to staff member
+    // Send notification to staff member using preferences
     try {
       const requestDetails = await approvalWorkflowService.getRequestDetails(requestId);
       console.log('📱 Request details for notification:', {
@@ -82,18 +83,17 @@ router.post('/approve/:requestId', authenticateToken, async (req, res) => {
       });
       
       if (requestDetails.request && requestDetails.request.staff_id) {
-        await notificationService.notifyRequestStatusUpdate(
-          requestDetails.request.staff_id,
-          requestId,
-          'approved',
-          {
+        await notificationHelper.sendNotificationIfEnabled('ppe_request_approved', {
+          requesterStaffId: requestDetails.request.staff_id,
+          requestId: requestId,
+          details: {
             approverName: req.user.name,
             notes: notes,
             items: requestDetails.items
           }
-        );
+        });
       } else {
-        console.warn('⚠️ Cannot send push notification - no staff_id found in request details');
+        console.warn('⚠️ Cannot send notification - no staff_id found in request details');
       }
     } catch (notificationError) {
       console.error('Failed to send approval notification:', notificationError);
@@ -128,7 +128,7 @@ router.post('/reject/:requestId', authenticateToken, async (req, res) => {
       userAgent
     });
     
-    // Send push notification to staff member
+    // Send notification to staff member using preferences
     try {
       const requestDetails = await approvalWorkflowService.getRequestDetails(requestId);
       console.log('📱 Request details for rejection notification:', {
@@ -138,18 +138,17 @@ router.post('/reject/:requestId', authenticateToken, async (req, res) => {
       });
       
       if (requestDetails.request && requestDetails.request.staff_id) {
-        await notificationService.notifyRequestStatusUpdate(
-          requestDetails.request.staff_id,
-          requestId,
-          'rejected',
-          {
+        await notificationHelper.sendNotificationIfEnabled('ppe_request_rejected', {
+          requesterStaffId: requestDetails.request.staff_id,
+          requestId: requestId,
+          details: {
             rejectorName: req.user.name,
             reason: reason,
             items: requestDetails.items
           }
-        );
+        });
       } else {
-        console.warn('⚠️ Cannot send push notification - no staff_id found in request details');
+        console.warn('⚠️ Cannot send notification - no staff_id found in request details');
       }
     } catch (notificationError) {
       console.error('Failed to send rejection notification:', notificationError);
