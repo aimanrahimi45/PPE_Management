@@ -30,47 +30,61 @@ class VPSLicenseService {
   }
 
   /**
-   * Generate enhanced device fingerprint for license binding
-   * @returns {string} Enhanced device fingerprint
+   * Generate enhanced device fingerprint for license binding (STABLE VERSION)
+   * @returns {string} Enhanced device fingerprint resistant to abnormal shutdowns
    */
   generateDeviceFingerprint() {
     const networkInterfaces = os.networkInterfaces();
-    const macAddresses = [];
+    const physicalMacAddresses = [];
     
-    // Extract MAC addresses (more reliable than IP)
+    // Extract only PHYSICAL MAC addresses (exclude virtual/temporary ones)
     for (const interfaceName in networkInterfaces) {
       const interfaces = networkInterfaces[interfaceName];
       for (const networkInterface of interfaces) {
-        if (!networkInterface.internal && networkInterface.mac !== '00:00:00:00:00:00') {
-          macAddresses.push(networkInterface.mac);
+        if (!networkInterface.internal && 
+            networkInterface.mac !== '00:00:00:00:00:00' &&
+            !interfaceName.toLowerCase().includes('vmware') &&
+            !interfaceName.toLowerCase().includes('virtualbox') &&
+            !interfaceName.toLowerCase().includes('hyper-v') &&
+            !interfaceName.toLowerCase().includes('docker') &&
+            !interfaceName.toLowerCase().includes('wsl') &&
+            !interfaceName.toLowerCase().includes('vpn') &&
+            !interfaceName.toLowerCase().includes('loopback')) {
+          physicalMacAddresses.push(networkInterface.mac);
         }
       }
     }
     
-    // Create comprehensive fingerprint
-    const fingerprintData = {
+    // Get stable hardware identifiers
+    const cpus = os.cpus();
+    const primaryCpuModel = cpus[0]?.model || 'unknown';
+    
+    // Round memory to nearest GB to handle small variations
+    const memoryGB = Math.round(os.totalmem() / (1024 * 1024 * 1024));
+    
+    // Create STABLE fingerprint (resistant to shutdown variations)
+    const stableFingerprintData = {
       version: this.fingerprintVersion,
       platform: os.platform(),
       arch: os.arch(),
-      hostname: os.hostname(),
-      username: os.userInfo().username,
-      macAddresses: macAddresses.sort(), // Sort for consistency
-      cpuModel: os.cpus()[0]?.model || 'unknown',
-      cpuCount: os.cpus().length,
-      totalMemory: os.totalmem(),
-      // systemUptime: Math.floor(os.uptime() / 86400), // Removed - causes fingerprint changes
-      nodeVersion: process.version,
-      timestamp: new Date().toISOString().split('T')[0] // Date only for stability
+      hostname: os.hostname().toLowerCase(), // Normalize case
+      username: os.userInfo().username.toLowerCase(), // Normalize case
+      physicalMacs: physicalMacAddresses.sort(), // Only physical MACs, sorted
+      primaryCpuModel: primaryCpuModel.replace(/\s+/g, ' ').trim(), // Normalize CPU model
+      cpuCount: cpus.length,
+      memoryGB: memoryGB, // Rounded to GB for stability
+      nodeVersionMajor: process.version.split('.')[0] // Only major version for stability
     };
     
-    const fingerprintString = JSON.stringify(fingerprintData);
+    const fingerprintString = JSON.stringify(stableFingerprintData);
     const fingerprint = crypto.createHash('sha256').update(fingerprintString).digest('hex');
     
-    console.log(`🆔 Enhanced Device Fingerprint Generated:`);
-    console.log(`   Platform: ${fingerprintData.platform} ${fingerprintData.arch}`);
-    console.log(`   Host: ${fingerprintData.hostname} (${fingerprintData.username})`);
-    console.log(`   MACs: ${macAddresses.length} interfaces`);
-    console.log(`   Hardware: ${fingerprintData.cpuCount} cores, ${Math.round(fingerprintData.totalMemory / 1024 / 1024 / 1024)}GB RAM`);
+    console.log(`🆔 Stable Device Fingerprint Generated:`);
+    console.log(`   Platform: ${stableFingerprintData.platform} ${stableFingerprintData.arch}`);
+    console.log(`   Host: ${stableFingerprintData.hostname} (${stableFingerprintData.username})`);
+    console.log(`   Physical MACs: ${physicalMacAddresses.length} interfaces`);
+    console.log(`   Hardware: ${stableFingerprintData.cpuCount} cores, ${stableFingerprintData.memoryGB}GB RAM`);
+    console.log(`   CPU: ${primaryCpuModel.substring(0, 30)}...`);
     console.log(`   Fingerprint: ${fingerprint.substring(0, 16)}...`);
     
     return fingerprint;

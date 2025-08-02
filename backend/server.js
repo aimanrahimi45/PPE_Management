@@ -56,6 +56,7 @@ const { checkLowStock } = require('./services/inventoryService');
 const { authenticateToken } = require('./middleware/auth');
 const { checkSetupRequired } = require('./middleware/setupCheck');
 const reportSchedulerService = require('./services/reportSchedulerService');
+const updateCheckService = require('./services/updateCheckService');
 
 const app = express();
 const server = http.createServer(app);
@@ -391,6 +392,7 @@ app.use('/api/condition-reports', require('./routes/conditionReports'));
 app.use('/api/config', require('./routes/config'));
 app.use('/api/departments', require('./routes/departments'));
 app.use('/api/tier-demo', require('./routes/tier-demo'));
+app.use('/api/updates', require('./routes/updates'));
 
 // Load scheduled reports routes (must be before catch-all)
 try {
@@ -630,7 +632,7 @@ async function generateUsageSummary(period) {
   }
 }
     
-    server.listen(PORT, '0.0.0.0', () => {
+    server.listen(PORT, '0.0.0.0', async () => {
       const networkIP = getNetworkIP();
       console.log(`PPE Management Server running on port ${PORT}`);
       console.log(`Frontend: http://localhost:${PORT}`);
@@ -639,6 +641,14 @@ async function generateUsageSummary(period) {
       console.log(`📱 Mobile Access: http://${networkIP}:${PORT}/worker.html`);
       console.log(`🏢 IT-Friendly: Using port ${PORT} for internal company use`);
       // console.log(`🔑 Super Admin: http://${networkIP}:${PORT}/super-admin.html`);
+      
+      // Initialize update check service
+      try {
+        await updateCheckService.initialize();
+        console.log('✅ Update check service initialized');
+      } catch (error) {
+        console.error('❌ Failed to initialize update check service:', error);
+      }
     });
     
     // Start background jobs
